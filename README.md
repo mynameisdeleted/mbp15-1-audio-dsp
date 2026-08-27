@@ -35,7 +35,8 @@ in ─▶ equalizer ─▶ virtualbass ─▶ multiband_compressor ─▶ limite
 
 | Stage | Upstream | This fork | Purpose |
 |---|---|---|---|
-| Pre-EQ | *none* | LSP `para_equalizer_x16_stereo`, `g_in 0.7` | Warm/bass-forward voicing curve |
+| Pre-EQ | *none* | LSP `para_equalizer_x16_stereo`, `g_in 0.5` | Warm/bass-forward voicing curve |
+| Gain staging | n/a | EQ `g_in` padded to 0.5 (≈ −6 dB); the ~3 dB net loss restored at `multiband_compressor.g_out 1.4`, with band thresholds `al_*` scaled to match | Run the EQ + `virtualbass` cooler; recover level only after the compressor detectors, right before the limiter |
 | EQ band 0 | n/a | 24 dB/oct **high-pass @ 50 Hz** (`ft_0 2`, `s_0 1`) | Keep subsonic energy off the small woofers |
 | Dynamics | single-band `compressor_stereo` | `mb_compressor_stereo`, **6 bands** (xover 90/200/500/1500/5000 Hz), Modern mode | Per-band peak control that doesn't duck the mids on a bass beat |
 | Woofer FIR gain | `1.0` | `1.5` (`convLW` / `convRW`) | More low-end output (overdrive) |
@@ -55,8 +56,18 @@ should not distort the woofers or duck the midrange.
     the volume down and recedes as you turn it up.
   - The static EQ bells (31.5–125 Hz) add a fixed warmth tilt. Note LSP's `g_*`
     ports are **linear amplitude, not dB** — `g_3 = 2.5` is ≈ +8 dB, offset by
-    `g_in 0.7` (≈ −3 dB). This is a hot bass shelf on purpose; the dynamics
+    `g_in 0.5` (≈ −6 dB). This is a hot bass shelf on purpose; the dynamics
     stages below exist to keep it safe when loud.
+
+- **Gain staging.** `g_in` on the EQ is padded to 0.5 so the boosted bands and
+  `virtualbass`'s saturation stages run with headroom rather than near/over
+  0 dBFS. The signal path is 32-bit float end-to-end (real clipping only happens
+  at the ALSA sink), but a cooler operating point keeps `virtualbass` from being
+  over-driven and keeps every plugin's internal detectors honest. The ~3 dB net
+  level loss is put back at `multiband_compressor.g_out` (1.0 → 1.4) — *after*
+  the band detectors, immediately before the main limiter — and the band
+  thresholds `al_*` were scaled by the same factor so the compressor behaves
+  exactly as before, just at a lower internal level.
 
 - **Bass beats don't distort** is handled by multiband, not broadband,
   compression. A single-band compressor keyed off a kick drum applies gain
@@ -89,13 +100,19 @@ If the woofers still bottom out or anything distorts, in order of preference:
 |---|---|---|---|
 | `wlim.control` | `limit` | `-2` | Lower to `-3` / `-4` — hard woofer ceiling, dB |
 | `convLW` / `convRW` `config` | `gain` | `1.5` | Back toward `1.35` — less low-end drive overall |
-| `multiband_compressor.control` | `al_0` | `0.130` (≈ −18 dB) | Lower = bass band clamps sooner |
+| `multiband_compressor.control` | `al_0` | `0.093` (≈ −21 dB) | Lower = bass band clamps sooner |
 | `multiband_compressor.control` | `cr_0` | `50.0` | Already near brick-wall; leave it |
 | `multiband_compressor.control` | `at_0` | `6.0` ms | Lower to ~4 ms if kick transients poke through (adds some LF harmonic distortion) |
 
 If the midrange sounds over-controlled / lifeless, raise `al_1`–`al_5` (higher =
 those bands stay out of the way longer) or lower their ratios `cr_1`–`cr_5`
 toward `2.0`.
+
+**Gain staging.** To run the EQ / `virtualbass` even cooler, lower
+`equalizer.g_in` further (e.g. `0.4`, `0.35`) and put the same factor back into
+`multiband_compressor.g_out`, then scale `al_0`–`al_5` by that factor so the
+compressor keeps the same behaviour. If bass feels thinner after the pad, nudge
+`virtualbass.amt` up (`1.0` → `1.2`) rather than raising `g_in` back.
 
 `tlim.control` `limit` (`-1`) is the tweeter ceiling — rarely needs touching, but
 **keep `tlim` present even if you disable it** (`limit` high), because it also
