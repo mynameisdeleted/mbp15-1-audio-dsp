@@ -25,8 +25,10 @@ the sink volume slider to the loudness-compensation stage.
 ## Signal chain
 
 ```
-in ─▶ equalizer ─▶ virtualbass ─▶ multiband_compressor ─▶ limiter ─▶ ell/elr ─▶ copyL/R ─┬▶ convLT/convRT (tweeter FIR) ─▶ out
-     (LSP x16)     (bankstown)   (LSP mb_comp x4)      (fastLookahead) (loud_comp)        └▶ convLW/convRW (woofer FIR)  ─▶ out
+in ─▶ equalizer ─▶ virtualbass ─▶ multiband_compressor ─▶ limiter ─▶ ell/elr ─▶ copyL/R ─┬▶ convLT/convRT ─▶ tlim ─▶ out
+     (LSP x16)     (bankstown)   (LSP mb_comp x6)      (fastLookahead) (loud_comp)        │  (tweeter FIR)   (limit)
+                                                                                          └▶ convLW/convRW ─▶ wlim ─▶ out
+                                                                                             (woofer FIR)    (limit)
 ```
 
 ## Changes vs. upstream `15_1/graph.json`
@@ -35,8 +37,9 @@ in ─▶ equalizer ─▶ virtualbass ─▶ multiband_compressor ─▶ limite
 |---|---|---|---|
 | Pre-EQ | *none* | LSP `para_equalizer_x16_stereo`, `g_in 0.7` | Warm/bass-forward voicing curve |
 | EQ band 0 | n/a | 24 dB/oct **high-pass @ 50 Hz** (`ft_0 2`, `s_0 1`) | Keep subsonic energy off the small woofers |
-| Dynamics | single-band `compressor_stereo` | `mb_compressor_stereo`, 4 bands (xover 120/400/1000 Hz) | See rationale below |
+| Dynamics | single-band `compressor_stereo` | `mb_compressor_stereo`, **6 bands** (xover 90/200/500/1500/5000 Hz), Modern mode | Per-band peak control that doesn't duck the mids on a bass beat |
 | Woofer FIR gain | `1.0` | `1.5` (`convLW` / `convRW`) | More low-end output (overdrive) |
+| Post-FIR limiters | *none* | `wlim` (−2 dB) after woofer FIR, `tlim` (−1 dB) after tweeter FIR | Hard ceiling on the *actual* driver signal — excursion / clip backstop |
 
 Everything else is byte-identical to upstream.
 
@@ -50,15 +53,29 @@ should not distort the woofers or duck the midrange.
     compensator. The sink volume slider feeds `ell:volume` / `elr:volume`
     (cubic, −65→0 dB), so bass/treble lift automatically increases as you turn
     the volume down and recedes as you turn it up.
-  - The static EQ bells (31.5–125 Hz, +1.4 to +2.5 dB) add a fixed warmth tilt.
+  - The static EQ bells (31.5–125 Hz) add a fixed warmth tilt. Note LSP's `g_*`
+    ports are **linear amplitude, not dB** — `g_3 = 2.5` is ≈ +8 dB, offset by
+    `g_in 0.7` (≈ −3 dB). This is a hot bass shelf on purpose; the dynamics
+    stages below exist to keep it safe when loud.
 
 - **Bass beats don't distort** is handled by multiband, not broadband,
   compression. A single-band compressor keyed off a kick drum applies gain
   reduction to the *whole* spectrum — vocals and mids pump on every beat, and
-  loud bass can shut the woofers down across all frequencies. The multiband
-  confines the gain reduction to band 0 (< 120 Hz): ~10:1 above ≈ −17 dB with a
-  10 ms attack, so the sub band is clamped to a near-fixed ceiling while the
-  midrange stays open.
+  loud bass can shut the woofers down across all frequencies. The 6-band
+  multiband keeps each band responding only to its own energy: band 0 (< 90 Hz)
+  is a near-brick-wall limiter (`cr 50`, ≈ −18 dB threshold, 6 ms attack), the
+  higher bands limit progressively more gently, and none of them move because of
+  a kick drum. The EQ is left untouched, so anything below the thresholds — i.e.
+  quiet listening — passes with its full warm tilt intact; only loud peaks are
+  clamped.
+
+- **Woofers can't bottom out.** Everything above only limits *before* the
+  woofer FIR, which then adds another +3.5 dB, and `loud_comp` adds bass gain
+  after that. `wlim` / `tlim` are `fastLookaheadLimiter` instances placed
+  *after* the convolvers, so they clamp the real signal the drivers see
+  regardless of upstream gain. `wlim` at −2 dB is the mechanical-excursion
+  backstop; `tlim` at −1 dB protects the tweeters and keeps the two paths
+  time-aligned (equal lookahead latency — no comb filtering at the crossover).
 
 - **`virtualbass` (bankstown)** synthesizes harmonics of the bass in the
   60–150 Hz window, so the ear perceives low end the driver never has to
@@ -66,19 +83,23 @@ should not distort the woofers or duck the midrange.
 
 ## Tuning knobs
 
-In `graph.json`, `multiband_compressor.control`:
+If the woofers still bottom out or anything distorts, in order of preference:
 
-| Key | Now | Effect |
-|---|---|---|
-| `al_0` | `0.142` (≈ −17 dB) | Bass clamp threshold — lower = clamps sooner |
-| `cr_0` | `10.0` | Bass ratio — raise toward 20:1+ for true limiting |
-| `at_0` | `10.0` ms | Lower to ~5 ms if kick transients still poke through |
-| `ce_1` / `ce_2` / `ce_3` | `1` | Set to `0` to disable bands 1–3 and compress **only** the bass |
-| `sf_1` | `120.0` Hz | Lower to ~90–100 Hz to keep band 0 off the low mids |
+| Where | Key | Now | Effect |
+|---|---|---|---|
+| `wlim.control` | `limit` | `-2` | Lower to `-3` / `-4` — hard woofer ceiling, dB |
+| `convLW` / `convRW` `config` | `gain` | `1.5` | Back toward `1.35` — less low-end drive overall |
+| `multiband_compressor.control` | `al_0` | `0.130` (≈ −18 dB) | Lower = bass band clamps sooner |
+| `multiband_compressor.control` | `cr_0` | `50.0` | Already near brick-wall; leave it |
+| `multiband_compressor.control` | `at_0` | `6.0` ms | Lower to ~4 ms if kick transients poke through (adds some LF harmonic distortion) |
 
-In `graph.json`, woofer convolvers (`convLW` / `convRW`): `gain 1.5` sets actual
-woofer SPL — the dynamics ceiling won't save you if this is too hot; back toward
-`1.35` if heavy bass still distorts.
+If the midrange sounds over-controlled / lifeless, raise `al_1`–`al_5` (higher =
+those bands stay out of the way longer) or lower their ratios `cr_1`–`cr_5`
+toward `2.0`.
+
+`tlim.control` `limit` (`-1`) is the tweeter ceiling — rarely needs touching, but
+**keep `tlim` present even if you disable it** (`limit` high), because it also
+holds the tweeter/woofer time alignment.
 
 ## Install
 

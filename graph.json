@@ -50,20 +50,24 @@
                 "name": "multiband_compressor",
                 "control": {
                     "enabled": 1,
-                    "mode": 0,
+                    "mode": 1,
                     "g_in": 1.0,
                     "g_out": 1.0,
                     "g_dry": 0.0001,
                     "g_wet": 1.0,
-                    "cbe_1": 1, "sf_1": 120.0,
-                    "cbe_2": 1, "sf_2": 400.0,
-                    "cbe_3": 1, "sf_3": 1000.0,
-                    "cbe_4": 0, "cbe_5": 0, "cbe_6": 0, "cbe_7": 0,
-                    "ce_0": 1, "at_0": 10.0, "rt_0": 100.0, "cr_0": 10.0, "kn_0": 0.15, "al_0": 0.142, "mk_0": 1.5, "bth_0": 1.0, "bsa_0": 1.0, "scm_0": 0,
-                    "ce_1": 1, "at_1": 20.0, "rt_1": 200.0, "cr_1": 3.0, "kn_1": 0.5, "al_1": 0.226, "mk_1": 2.0, "bth_1": 1.0, "bsa_1": 1.0, "scm_1": 0,
-                    "ce_2": 1, "at_2": 20.0, "rt_2": 200.0, "cr_2": 3.0, "kn_2": 0.5, "al_2": 0.226, "mk_2": 2.0, "bth_2": 1.0, "bsa_2": 1.0, "scm_2": 0,
-                    "ce_3": 1, "at_3": 20.0, "rt_3": 200.0, "cr_3": 1.5, "kn_3": 0.5, "al_3": 0.398, "mk_3": 1.41, "bth_3": 1.0, "bsa_3": 1.0, "scm_3": 0,
-                    "ce_4": 0, "ce_5": 0, "ce_6": 0, "ce_7": 0
+                    "cbe_1": 1, "sf_1": 90.0,
+                    "cbe_2": 1, "sf_2": 200.0,
+                    "cbe_3": 1, "sf_3": 500.0,
+                    "cbe_4": 1, "sf_4": 1500.0,
+                    "cbe_5": 1, "sf_5": 5000.0,
+                    "cbe_6": 0, "cbe_7": 0,
+                    "ce_0": 1, "at_0": 6.0,  "rt_0": 120.0, "cr_0": 50.0, "kn_0": 0.10, "al_0": 0.130, "mk_0": 1.5,  "bth_0": 1.0, "bsa_0": 1.0, "scm_0": 0,
+                    "ce_1": 1, "at_1": 8.0,  "rt_1": 150.0, "cr_1": 10.0, "kn_1": 0.20, "al_1": 0.226, "mk_1": 2.0,  "bth_1": 1.0, "bsa_1": 1.0, "scm_1": 0,
+                    "ce_2": 1, "at_2": 10.0, "rt_2": 150.0, "cr_2": 7.0,  "kn_2": 0.30, "al_2": 0.280, "mk_2": 2.0,  "bth_2": 1.0, "bsa_2": 1.0, "scm_2": 0,
+                    "ce_3": 1, "at_3": 12.0, "rt_3": 180.0, "cr_3": 5.0,  "kn_3": 0.40, "al_3": 0.398, "mk_3": 1.41, "bth_3": 1.0, "bsa_3": 1.0, "scm_3": 0,
+                    "ce_4": 1, "at_4": 5.0,  "rt_4": 120.0, "cr_4": 6.0,  "kn_4": 0.40, "al_4": 0.350, "mk_4": 1.2,  "bth_4": 1.0, "bsa_4": 1.0, "scm_4": 0,
+                    "ce_5": 1, "at_5": 3.0,  "rt_5": 100.0, "cr_5": 6.0,  "kn_5": 0.30, "al_5": 0.300, "mk_5": 1.1,  "bth_5": 1.0, "bsa_5": 1.0, "scm_5": 0,
+                    "ce_6": 0, "ce_7": 0
                 }
             },
             {
@@ -73,7 +77,7 @@
                 "control": {
                     "ingain": 0,
                     "limit": -1,
-                    "release": 0.8
+                    "release": 0.35
                 }
             },
             {
@@ -161,6 +165,26 @@
                     "channel": 0,
                     "gain": 1.5
                 }
+            },
+            {
+                "type": "lv2",
+                "name": "wlim",
+                "plugin": "http://plugin.org.uk/swh-plugins/fastLookaheadLimiter",
+                "control": {
+                    "ingain": 0,
+                    "limit": -2,
+                    "release": 0.25
+                }
+            },
+            {
+                "type": "lv2",
+                "name": "tlim",
+                "plugin": "http://plugin.org.uk/swh-plugins/fastLookaheadLimiter",
+                "control": {
+                    "ingain": 0,
+                    "limit": -1,
+                    "release": 0.15
+                }
             }
         ],
         "links": [
@@ -177,17 +201,21 @@
             {"output": "copyL:Out", "input": "convLT:In"},
             {"output": "copyL:Out", "input": "convLW:In"},
             {"output": "copyR:Out", "input": "convRT:In"},
-            {"output": "copyR:Out", "input": "convRW:In"}
+            {"output": "copyR:Out", "input": "convRW:In"},
+            {"output": "convLW:Out", "input": "wlim:in_1"},
+            {"output": "convRW:Out", "input": "wlim:in_2"},
+            {"output": "convLT:Out", "input": "tlim:in_1"},
+            {"output": "convRT:Out", "input": "tlim:in_2"}
         ],
         "inputs": [
             "equalizer:in_l",
             "equalizer:in_r"
         ],
         "outputs": [
-            "convLW:Out",
-            "convRW:Out",
-            "convLT:Out",
-            "convRT:Out"
+            "wlim:out_1",
+            "wlim:out_2",
+            "tlim:out_1",
+            "tlim:out_2"
         ],
         "capture.volumes": [
             {
