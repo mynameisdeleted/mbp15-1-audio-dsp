@@ -73,12 +73,13 @@ should not distort the woofers or duck the midrange.
   compression. A single-band compressor keyed off a kick drum applies gain
   reduction to the *whole* spectrum — vocals and mids pump on every beat, and
   loud bass can shut the woofers down across all frequencies. The 6-band
-  multiband keeps each band responding only to its own energy: band 0 (< 90 Hz)
-  is a near-brick-wall limiter (`cr 50`, ≈ −18 dB threshold, 6 ms attack), the
-  higher bands limit progressively more gently, and none of them move because of
-  a kick drum. The EQ is left untouched, so anything below the thresholds — i.e.
-  quiet listening — passes with its full warm tilt intact; only loud peaks are
-  clamped.
+  multiband keeps each band responding only to its own energy. The three bands
+  below ~500 Hz — where over-excursion and boom live — are effectively limiters:
+  band 0 (< 90 Hz) `cr 50`, band 1 (90–200 Hz) `cr 20`, band 2 (200–500 Hz)
+  `cr 15`. Bands 3–5 above that limit gently (`cr 5–6`) and none of them move
+  because of a kick drum. The EQ is left untouched, so anything below the
+  thresholds — i.e. quiet listening — passes with its full warm tilt intact;
+  only loud peaks are clamped.
 
 - **Woofers can't bottom out.** Everything above only limits *before* the
   woofer FIR, which then adds another +3.5 dB, and `loud_comp` adds bass gain
@@ -106,7 +107,8 @@ If the woofers still bottom out or anything distorts, in order of preference:
 
 If the midrange sounds over-controlled / lifeless, raise `al_1`–`al_5` (higher =
 those bands stay out of the way longer) or lower their ratios `cr_1`–`cr_5`
-toward `2.0`.
+toward `2.0`. Band 2 (200–500 Hz) at `cr 15` reaches into low-mid body — if male
+vocals / snare sound boxy or thin, drop `cr_2` back toward `8`.
 
 **Gain staging.** To run the EQ / `virtualbass` even cooler, lower
 `equalizer.g_in` further (e.g. `0.4`, `0.35`) and put the same factor back into
