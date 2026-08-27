@@ -80,10 +80,12 @@ should not distort the woofers or duck the midrange.
   multiband keeps each band responding only to its own energy. The three bands
   below ~500 Hz — where over-excursion and boom live — are effectively limiters:
   band 0 (< 90 Hz) `cr 50`, band 1 (90–200 Hz) `cr 20`, band 2 (200–500 Hz)
-  `cr 15`. Bands 3–5 above that limit gently (`cr 5–6`) and none of them move
-  because of a kick drum. The EQ is left untouched, so anything below the
-  thresholds — i.e. quiet listening — passes with its full warm tilt intact;
-  only loud peaks are clamped.
+  `cr 15`. Bands 1 and 2 also have their thresholds `al_1` / `al_2` pulled down
+  ~2 dB relative to the rest, so the woofer sees a ~2 dB lower ceiling in the
+  midbass than in the sub. Bands 3–5 above that limit gently (`cr 5–6`) and none
+  of them move because of a kick drum. The EQ is left untouched, so anything
+  below the thresholds — i.e. quiet listening — passes with its full warm tilt
+  intact; only loud peaks are clamped.
 
 - **Woofers can't bottom out.** The woofer FIR is near unity now (`1.15`), but
   `loud_comp` still adds bass gain after the main limiter, so the very last
