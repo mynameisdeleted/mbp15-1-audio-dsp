@@ -39,7 +39,8 @@ in ─▶ equalizer ─▶ virtualbass ─▶ multiband_compressor ─▶ limite
 | Gain staging | n/a | EQ `g_in` padded to 0.5 (≈ −6 dB); the ~3 dB net loss restored at `multiband_compressor.g_out 1.4`, with band thresholds `al_*` scaled to match | Run the EQ + `virtualbass` cooler; recover level only after the compressor detectors, right before the limiter |
 | EQ band 0 | n/a | 24 dB/oct **high-pass @ 50 Hz** (`ft_0 2`, `s_0 1`) | Keep subsonic energy off the small woofers |
 | Dynamics | single-band `compressor_stereo` | `mb_compressor_stereo`, **6 bands** (xover 90/200/500/1500/5000 Hz), Modern mode | Per-band peak control that doesn't duck the mids on a bass beat |
-| Woofer FIR gain | `1.0` | `1.5` (`convLW` / `convRW`) | More low-end output (overdrive) |
+| Woofer FIR gain | `1.0` | `1.15` (`convLW` / `convRW`) | Small trim only; the low-end drive now lives in the EQ bass bells (upstream, so it passes through the compressor + limiters instead of being an uncontrolled post-gain) |
+| Bass EQ bells | n/a | 31.5–200 Hz boosted ~+2.3 dB above the base warm tilt to offset the FIR gain reduction | Same woofer output level, but dynamically governed |
 | Post-FIR limiters | *none* | `wlim` (−2 dB) after woofer FIR, `tlim` (−1 dB) after tweeter FIR | Hard ceiling on the *actual* driver signal — excursion / clip backstop |
 
 Everything else is byte-identical to upstream.
@@ -55,9 +56,12 @@ should not distort the woofers or duck the midrange.
     (cubic, −65→0 dB), so bass/treble lift automatically increases as you turn
     the volume down and recedes as you turn it up.
   - The static EQ bells (31.5–125 Hz) add a fixed warmth tilt. Note LSP's `g_*`
-    ports are **linear amplitude, not dB** — `g_3 = 2.5` is ≈ +8 dB, offset by
+    ports are **linear amplitude, not dB** — `g_3 = 3.26` is ≈ +10 dB, offset by
     `g_in 0.5` (≈ −6 dB). This is a hot bass shelf on purpose; the dynamics
-    stages below exist to keep it safe when loud.
+    stages below exist to keep it safe when loud. The bass boost lives here
+    rather than in the woofer FIR gain (kept near unity at 1.15) so it passes
+    through the compressor and limiters and is dynamically controlled, instead
+    of being a fixed post-everything gain that only `wlim` can catch.
 
 - **Gain staging.** `g_in` on the EQ is padded to 0.5 so the boosted bands and
   `virtualbass`'s saturation stages run with headroom rather than near/over
@@ -81,9 +85,9 @@ should not distort the woofers or duck the midrange.
   thresholds — i.e. quiet listening — passes with its full warm tilt intact;
   only loud peaks are clamped.
 
-- **Woofers can't bottom out.** Everything above only limits *before* the
-  woofer FIR, which then adds another +3.5 dB, and `loud_comp` adds bass gain
-  after that. `wlim` / `tlim` are `fastLookaheadLimiter` instances placed
+- **Woofers can't bottom out.** The woofer FIR is near unity now (`1.15`), but
+  `loud_comp` still adds bass gain after the main limiter, so the very last
+  stage is unguarded. `wlim` / `tlim` are `fastLookaheadLimiter` instances placed
   *after* the convolvers, so they clamp the real signal the drivers see
   regardless of upstream gain. `wlim` at −2 dB is the mechanical-excursion
   backstop; `tlim` at −1 dB protects the tweeters and keeps the two paths
@@ -100,7 +104,8 @@ If the woofers still bottom out or anything distorts, in order of preference:
 | Where | Key | Now | Effect |
 |---|---|---|---|
 | `wlim.control` | `limit` | `-2` | Lower to `-3` / `-4` — hard woofer ceiling, dB |
-| `convLW` / `convRW` `config` | `gain` | `1.5` | Back toward `1.35` — less low-end drive overall |
+| `equalizer.control` | `g_1`–`g_5` | `1.82 / 2.48 / 3.26 / 2.61 / 1.75` | The bass boost — lower all five proportionally for less low-end drive overall |
+| `convLW` / `convRW` `config` | `gain` | `1.15` | FIR trim; leave it — adjust the EQ bells instead |
 | `multiband_compressor.control` | `al_0` | `0.093` (≈ −21 dB) | Lower = bass band clamps sooner |
 | `multiband_compressor.control` | `cr_0` | `50.0` | Already near brick-wall; leave it |
 | `multiband_compressor.control` | `at_0` | `6.0` ms | Lower to ~4 ms if kick transients poke through (adds some LF harmonic distortion) |
