@@ -22,6 +22,45 @@ All structural elements are unchanged: node names, FIR `.wav` paths
 output, allowed rates 48000/44100, and the `capture.volumes` mapping that ties
 the sink volume slider to the loudness-compensation stage.
 
+## Prior art — why this fork
+
+Two recurring complaints about the upstream chains, from their own issue
+trackers and docs, motivated the changes here:
+
+**It sounds thin / not warm enough.** `asahi-audio` deliberately targets *"a
+mostly flat response ... without adding an excessive amount of colour"* and
+explicitly rejects Apple's *"exaggerated Harman curve."* Flat magnitude is
+equal-energy-per-*Hz*, which reads as bass-light against pink-balanced program
+material (see [Design rationale](#why-the-voicing-curve-exists--and-why-upstream-sounds-thin)).
+Users keep asking for the warmth back:
+
+- [asahi-audio #31](https://github.com/AsahiLinux/asahi-audio/issues/31) — request for a bass/treble ("smiley") curve + a guide to change it system-wide; closed with no documented answer.
+- [asahi-audio #93](https://github.com/AsahiLinux/asahi-audio/issues/93) — *"Lacks proper bass and high frequencies, sounding flat, thin, and muddy";* closed as not planned.
+- [t2-apple-audio-dsp #21](https://github.com/lemmyg/t2-apple-audio-dsp/issues/21) (direct upstream) — *"Quality is good but volume is quite low even at maximum volume."*
+- [Asahi audio docs](https://asahilinux.org/docs/sw/audio-userspace/) known issues: the 13″ MBA EQ *"might be a bit harsh on the treble."*
+
+**It distorts when loud, because there is no output limiter.** The Asahi docs
+state plainly: *"There is no final limiter/compressor in the current DSP
+chains"* (only an input compressor), so *"content in high-gain regions of the EQ
+curve might cause distortion or clipping."* They also flag *"the 200 Hz region"*
+for distortion risk and note `bankstown` is *"prone to saturation artifacts at
+high volumes."*
+
+- [asahi-audio #22](https://github.com/AsahiLinux/asahi-audio/issues/22) — j313 distortion at 100 %; traced to convolver gain being too hot, worked around by dropping it to ~0.6.
+- [asahi-audio #42](https://github.com/AsahiLinux/asahi-audio/issues/42) — J474 distortion above 72 % volume.
+- [asahi-audio #91](https://github.com/AsahiLinux/asahi-audio/issues/91) — j313 *"severe speaker distortion"* at 55 %; `speakersafetyd` logs nothing, i.e. it's in the signal processing, not the protection model.
+
+This fork's answers, point by point:
+
+| Upstream complaint | Change here |
+|---|---|
+| flat / thin / "not warm enough" | EQ bass tilt (≈ +3 dB/octave per-Hz) ahead of the dynamics |
+| no final limiter → clipping in high-gain EQ regions | `limiter` + post-FIR `wlim` / `tlim` on the real driver signal |
+| 200 Hz distortion risk | fine multiband split through the low-mids |
+| `bankstown` saturates at volume | EQ `g_in 0.5` pad + `sat_second` / `sat_third` reduced |
+| convolver gain too hot at 100 % (#22) | FIR kept near unity; drive lives in the dynamically-governed EQ |
+| "volume too low at max" (#21) | `g_out` makeup + loudness maximisation into the limiters |
+
 ## Signal chain
 
 ```
@@ -49,6 +88,36 @@ Everything else is byte-identical to upstream.
 
 **Goal:** mild-volume music should sound warm and full; bass-heavy material
 should not distort the woofers or duck the midrange.
+
+### Why the voicing curve exists — and why upstream sounds thin
+
+Music is mastered for systems with a roughly **equal-energy-per-octave** (pink)
+balance and the headroom to reproduce it. The forked FIR filters (`asahi-audio` /
+`t2-apple-audio-dsp`) correct the drivers to **flat magnitude = equal energy per
+_Hz_** — measurement-correct, but each octave down then carries the same per-Hz
+energy across half the bandwidth, so it lands **bass-light** ("not warm enough").
+Matching the per-octave balance needs ≈ **+3 dB/octave** of per-Hz lift toward the
+lows — that is what the EQ bass bells are for.
+
+That tilt can't be static. The two things it can break are different above and
+below **~150 Hz**:
+
+| Region | Failure mode | Scaling | Guarded by |
+|---|---|---|---|
+| **< ~150 Hz** | woofer **over-excursion** — cone bottoms out | displacement ∝ 1/f² ≈ **+12 dB/octave** for constant SPL | fine multiband split (one limiter per bass octave, held release) + the 20 Hz subsonic HPF; `virtualbass` supplies deep sub as harmonics so the cone never has to move for it |
+| **> ~150 Hz** | **over-voltage** — demanded level exceeds the amp's max swing to the cone | ≈ flat (voltage/thermal, not displacement) | multiband peak control per band, then `limiter` / `wlim` / `tlim` as backstop |
+
+The `fastLookaheadLimiter` stages are a *second* line of defence only, because
+they are **broadband**: when one triggers it ducks every frequency at once, so a
+loud trombone transient pulls the violins down with it. The multiband compressor
+is the *first* line precisely because its gain reduction stays inside the
+offending band — the more work it does, the less the broadband limiters engage
+and the cleaner the result. Net: full warmth at low level, graceful flattening
+toward the FIR's flat-per-Hz curve as it gets loud, with cheap pitch-reinforcing
+harmonic distortion traded for ugly (and mechanically risky) excursion
+distortion.
+
+### Warm at low volume
 
 - **Warm at low volume** is handled two ways:
   - `ell` / `elr` (`loud_comp_mono`) is a true ISO-226 equal-loudness
