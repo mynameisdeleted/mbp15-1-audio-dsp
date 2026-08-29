@@ -1,5 +1,7 @@
 # MacBook Pro 15,1 — Warm, Natural Audio DSP for t2linux
 
+[![GitHub Repository](https://img.shields.io/badge/Repository-GitHub-181717.svg?logo=github)](https://github.com/mynameisdeleted/mbp15-1-audio-dsp)
+[![Fairfax Media Git](https://img.shields.io/badge/Repository-Fairfax%20Media-003366.svg)](https://git.fairfaxmedia.net/t2linux/mbp15-1-audio-dsp.git)
 [![t2linux](https://img.shields.io/badge/Platform-t2linux-blue.svg)](https://wiki.t2linux.org/)
 [![Asahi Audio Ecosystem](https://img.shields.io/badge/Ecosystem-Asahi%20Audio-orange.svg)](https://github.com/AsahiLinux/asahi-audio)
 [![PipeWire](https://img.shields.io/badge/Audio-PipeWire%20%2F%20WirePlumber-red.svg)](https://pipewire.org/)
@@ -137,8 +139,13 @@ If your physical hardware unit needs custom dynamic tuning:
 
 ---
 
-## 📚 Documentation Index
+## 📚 Documentation & Repository Links
 
+### 🔗 Repositories & Mirrors
+* 🐙 **GitHub Repository:** [github.com/mynameisdeleted/mbp15-1-audio-dsp](https://github.com/mynameisdeleted/mbp15-1-audio-dsp)
+* 🏢 **Fairfax Media Git Server:** [git.fairfaxmedia.net/t2linux/mbp15-1-audio-dsp](https://git.fairfaxmedia.net/t2linux/mbp15-1-audio-dsp.git)
+
+### 📖 Guides & References
 * 📖 **[INSTALL.md](INSTALL.md)** — Comprehensive installation guide, system prerequisites, package manager details, and troubleshooting.
 * 🎓 **[README.advanced.md](README.advanced.md)** — Complete electroacoustic design rationale, magnitude-vs-power analysis, gain staging equations, issue tracebacks, and exhaustive parameter tables.
 * 📊 **[mb-compressor-params.md](mb-compressor-params.md)** — Port-by-port reference for the 8-band LSP multiband compressor.
