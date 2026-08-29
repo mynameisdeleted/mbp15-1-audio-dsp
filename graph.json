@@ -6,6 +6,22 @@
             {
                 "type": "lv2",
                 "plugin": "http://lsp-plug.in/plugins/lv2/para_equalizer_x16_stereo",
+                "name": "user_eq",
+                "control": {
+                    "enabled": 1, "mode": 0, "g_in": 1.0, "g_out": 1.0,
+                    "ft_0": 5, "f_0": 70.0,    "g_0": 1.0, "q_0": 0.7, "s_0": 0,
+                    "ft_1": 1, "f_1": 110.0,   "g_1": 1.0, "q_1": 1.0,
+                    "ft_2": 1, "f_2": 220.0,   "g_2": 1.0, "q_2": 1.0,
+                    "ft_3": 1, "f_3": 450.0,   "g_3": 1.0, "q_3": 1.0,
+                    "ft_4": 1, "f_4": 1000.0,  "g_4": 1.0, "q_4": 1.0,
+                    "ft_5": 1, "f_5": 2500.0,  "g_5": 1.0, "q_5": 1.0,
+                    "ft_6": 1, "f_6": 6000.0,  "g_6": 1.0, "q_6": 1.0,
+                    "ft_7": 3, "f_7": 10000.0, "g_7": 1.0, "q_7": 0.7, "s_7": 0
+                }
+            },
+            {
+                "type": "lv2",
+                "plugin": "http://lsp-plug.in/plugins/lv2/para_equalizer_x16_stereo",
                 "name": "equalizer",
                 "control": {
                     "enabled": 1,
@@ -190,6 +206,8 @@
             }
         ],
         "links": [
+            {"output": "user_eq:out_l", "input": "equalizer:in_l"},
+            {"output": "user_eq:out_r", "input": "equalizer:in_r"},
             {"output": "equalizer:out_l", "input": "virtualbass:in_l"},
             {"output": "equalizer:out_r", "input": "virtualbass:in_r"},
             {"output": "virtualbass:out_l", "input": "multiband_compressor:in_l"},
@@ -210,8 +228,8 @@
             {"output": "convRT:Out", "input": "tlim:in_2"}
         ],
         "inputs": [
-            "equalizer:in_l",
-            "equalizer:in_r"
+            "user_eq:in_l",
+            "user_eq:in_r"
         ],
         "outputs": [
             "wlim:out_1",

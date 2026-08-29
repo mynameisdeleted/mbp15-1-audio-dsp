@@ -64,10 +64,10 @@ This fork's answers, point by point:
 ## Signal chain
 
 ```
-in ─▶ equalizer ─▶ virtualbass ─▶ multiband_compressor ─▶ limiter ─▶ ell/elr ─▶ copyL/R ─┬▶ convLT/convRT ─▶ tlim ─▶ out
-     (LSP x16)     (bankstown)   (LSP mb_comp x8)      (fastLookahead) (loud_comp)        │  (tweeter FIR)   (limit)
-                                                                                          └▶ convLW/convRW ─▶ wlim ─▶ out
-                                                                                             (woofer FIR)    (limit)
+in ─▶ user_eq ─▶ equalizer ─▶ virtualbass ─▶ multiband_compressor ─▶ limiter ─▶ ell/elr ─▶ copyL/R ─┬▶ convLT/convRT ─▶ tlim ─▶ out
+     (LSP x16)   (LSP x16)    (bankstown)   (LSP mb_comp x8)      (fastLookahead) (loud_comp)        │  (tweeter FIR)   (limit)
+     user prefs  voicing                                                                             └▶ convLW/convRW ─▶ wlim ─▶ out
+                                                                                                        (woofer FIR)    (limit)
 ```
 
 ## Changes vs. upstream `15_1/graph.json`
@@ -184,6 +184,43 @@ distortion.
   60–150 Hz window, so the ear perceives low end the driver never has to
   physically produce — the psychoacoustic counterpart to the 60 Hz high-pass.
 
+## User preference EQ
+
+`user_eq` is the **first node in the graph** and the only block meant for
+hand-editing — a plain 8-band tone control for matching the sound to content
+type. It defaults **flat** (every `g_*` = `1.0`), which *is* the reference
+voicing; editing it never touches the calibrated `equalizer` / dynamics below.
+Because it sits ahead of the compressor and limiters, even an aggressive preset
+is dynamically governed — it can't clip or over-excurse, it just gets
+compressed if pushed hard.
+
+| Band | `f` | Type | Region |
+|---|---|---|---|
+| 0 | 70 Hz | low shelf | sub weight / rumble |
+| 1 | 110 Hz | bell | bass punch |
+| 2 | 220 Hz | bell | warmth / boom |
+| 3 | 450 Hz | bell | body / mud |
+| 4 | 1 kHz | bell | mids / nasal |
+| 5 | 2.5 kHz | bell | presence / attack |
+| 6 | 6 kHz | bell | detail / sibilance |
+| 7 | 10 kHz | high shelf | air |
+
+Edit the `g_*` values in the `user_eq` `control` block. **Linear, not dB**
+(`+3 dB ≈ 1.41`, `−3 dB ≈ 0.71`). Keep each between `0.5` (−6 dB) and `2.0`
+(+6 dB). Run `./apply.sh` after.
+
+### Presets — the 8 `g_*` values, `g_0`…`g_7`
+
+| Preset | 70 | 110 | 220 | 450 | 1k | 2.5k | 6k | 10k |
+|---|---|---|---|---|---|---|---|---|
+| **Reference** (flat) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| Rock / Pop | 1.00 | 1.26 | 1.00 | 0.94 | 1.00 | 1.12 | 1.19 | 1.12 |
+| Classical / Acoustic | 1.00 | 1.00 | 1.06 | 1.00 | 1.00 | 1.00 | 1.12 | 1.12 |
+| Electronic / Hip-Hop | 1.26 | 1.19 | 1.00 | 0.94 | 1.00 | 1.00 | 1.06 | 1.00 |
+| Movie — dialogue | 0.84 | 0.94 | 1.00 | 1.06 | 1.19 | 1.19 | 1.06 | 1.00 |
+| Movie — action | 1.41 | 1.12 | 1.00 | 1.00 | 1.00 | 1.06 | 1.12 | 1.12 |
+| Late-night (low level) | 0.63 | 0.79 | 1.00 | 1.00 | 1.06 | 1.12 | 1.00 | 0.94 |
+
 ## Tuning knobs
 
 If the woofers still bottom out or anything distorts, in order of preference:
@@ -217,16 +254,20 @@ holds the tweeter/woofer time alignment.
 
 ## Install
 
+Full instructions — prerequisites, the LV2 plugin dependencies (LSP, SWH, and a
+source build of Bankstown), the FIR files, verification and troubleshooting —
+are in **[INSTALL.md](INSTALL.md)**.
+
+Short version, once the prerequisites are met:
+
 ```sh
 ./apply.sh
 ```
 
-This copies `graph.json` to `/usr/share/t2-linux-audio/15_1/graph.json` (needs
-`sudo`) and restarts WirePlumber (`systemctl --user restart wireplumber`).
-
-Requires the `t2-linux-audio` / `t2-apple-audio-dsp` package to already be
-installed (it provides the FIR `.wav` files, `51-t2-dsp.conf`, and the
-`mic.json` graph).
+copies `graph.json` to `/usr/share/t2-linux-audio/15_1/graph.json` (needs `sudo`)
+and restarts WirePlumber. Requires the `t2-linux-audio` / `t2-apple-audio-dsp`
+package (FIR `.wav` files, `51-t2-dsp.conf`, `mic.json`) and the LV2 plugins the
+graph loads.
 
 ## Revert
 
@@ -237,4 +278,5 @@ systemctl --user restart wireplumber
 ```
 
 Note: a `t2-linux-audio` package update will overwrite the installed file and
-silently revert these changes — re-run `./apply.sh` afterward.
+silently revert these changes — re-run `./apply.sh` afterward. See
+[INSTALL.md § 8](INSTALL.md#8-after-a-system-update).
