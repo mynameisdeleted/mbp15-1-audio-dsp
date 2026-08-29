@@ -1,5 +1,10 @@
 # MacBook Pro 15,1 — Custom Speaker DSP Graph
 
+[![t2linux](https://img.shields.io/badge/Platform-t2linux-blue.svg)](https://wiki.t2linux.org/)
+[![Asahi Audio Ecosystem](https://img.shields.io/badge/Ecosystem-Asahi%20Audio-orange.svg)](https://github.com/AsahiLinux/asahi-audio)
+[![PipeWire](https://img.shields.io/badge/Audio-PipeWire%20%2F%20WirePlumber-red.svg)](https://pipewire.org/)
+[![Target Hardware](https://img.shields.io/badge/Hardware-MacBook%20Pro%2015%2C1-black.svg)]()
+
 A high-performance PipeWire `filter-chain` audio DSP graph for the built-in speakers of the **MacBook Pro 15,1** (2018/2019 Intel T2) running Linux (`t2linux`).
 
 > [!NOTE]
