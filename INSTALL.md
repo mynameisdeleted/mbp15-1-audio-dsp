@@ -31,6 +31,7 @@ package for your distro first — see <https://wiki.t2linux.org/guides/audio-con
 ```sh
 git clone <this-repo> mbp15-1-audio-dsp
 cd mbp15-1-audio-dsp
+chmod +x apply.sh install-deps.sh    # if git didn't preserve the bit
 ```
 
 ---
@@ -39,6 +40,11 @@ cd mbp15-1-audio-dsp
 
 The graph loads four LV2 plugins from three bundles. (`copy` and `convolver` are
 PipeWire builtins — nothing to install.)
+
+> **Shortcut:** `./install-deps.sh` does everything in this section — detects
+> `dnf`/`pacman`/`apt`/`zypper`, installs LSP + SWH, builds Bankstown from source
+> if it's missing, then verifies all five URIs. The manual steps below are what
+> it runs, for reference or when it can't.
 
 | Plugin URI in `graph.json` | Bundle | Package (varies by distro) |
 |---|---|---|
@@ -141,15 +147,21 @@ If you have your own recalibrated FIRs, drop them at that path (or edit the six
 ./apply.sh
 ```
 
-This does:
+`apply.sh` preflights before touching anything:
 
-1. `sudo cp graph.json /usr/share/t2-linux-audio/15_1/graph.json`
-2. `systemctl --user restart wireplumber`
+1. validates `graph.json` is well-formed JSON (`python3` or `jq`)
+2. checks the `/usr/share/t2-linux-audio/15_1/` dir exists (§1)
+3. checks every FIR `.wav` **referenced by the graph** is present (§4)
+4. checks every LV2 plugin URI **the graph loads** resolves in `lv2ls` (§3)
 
-Optional sanity check first (the tool is `python3-json` / stdlib):
+then `sudo cp`s the graph into place, restarts WirePlumber, and confirms the
+sink came up. Steps 3–4 read the paths/URIs straight out of `graph.json`, so
+they stay correct if you edit it.
+
+Pass `-f` to skip the preflight (JSON validation still runs):
 
 ```sh
-python3 -m json.tool graph.json > /dev/null && echo "graph.json OK"
+./apply.sh -f
 ```
 
 ---

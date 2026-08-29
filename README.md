@@ -258,16 +258,16 @@ Full instructions — prerequisites, the LV2 plugin dependencies (LSP, SWH, and 
 source build of Bankstown), the FIR files, verification and troubleshooting —
 are in **[INSTALL.md](INSTALL.md)**.
 
-Short version, once the prerequisites are met:
+Short version, with the `t2-linux-audio` / `t2-apple-audio-dsp` package already
+installed (it provides the FIR `.wav` files, `51-t2-dsp.conf` and `mic.json`):
 
 ```sh
-./apply.sh
+./install-deps.sh   # LSP + SWH plugins, builds Bankstown from source
+./apply.sh          # preflights, then copies the graph in and reloads WirePlumber
 ```
 
-copies `graph.json` to `/usr/share/t2-linux-audio/15_1/graph.json` (needs `sudo`)
-and restarts WirePlumber. Requires the `t2-linux-audio` / `t2-apple-audio-dsp`
-package (FIR `.wav` files, `51-t2-dsp.conf`, `mic.json`) and the LV2 plugins the
-graph loads.
+`apply.sh` refuses to install if a referenced FIR file or plugin URI is missing
+(`-f` skips those checks).
 
 ## Revert
 
