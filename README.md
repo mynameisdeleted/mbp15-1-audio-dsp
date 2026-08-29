@@ -2,7 +2,7 @@
 
 A high-performance PipeWire `filter-chain` audio DSP graph for the built-in speakers of the **MacBook Pro 15,1** (2018/2019 Intel T2) running Linux (`t2linux`).
 
-> [!NOTE]  
+> [!NOTE]
 > **Not a kernel driver.** This graph connects to WirePlumber's hidden `alsa_output.platform-sound.RawSpeakers` sink, delivering Apple-grade warm voicing, multiband dynamic control, driver crossover, FIR correction, and hard driver safety backstops.
 
 ---
@@ -33,26 +33,26 @@ flowchart LR
     classDef fir fill:#805ad5,stroke:#9f7aea,color:#fff;
     classDef limiter fill:#c53030,stroke:#e53e3e,color:#fff;
 
-    In["🔊 Audio Input"] :::input --> UserEQ["🎚️ user_eq<br/>(8-Band Prefs)"] :::eq
-    UserEQ --> EQ["🎼 Voicing EQ<br/>(+3dB/oct Warmth & HPF @ 60Hz)"] :::eq
-    EQ --> VB["🔊 virtualbass<br/>(Bankstown Sub-Harmonics)"] :::dynamics
-    VB --> MBComp["📊 multiband_compressor<br/>(8-Band LSP Peak Control)"] :::dynamics
-    MBComp --> Limiter["🛡️ limiter<br/>(Broadband Lookahead)"] :::limiter
-    Limiter --> LoudComp["👂 ell / elr<br/>(ISO-226 Loudness Comp)"] :::dynamics
+    In["🔊 Audio Input"]:::input --> UserEQ["🎚️ user_eq (8-Band Prefs)"]:::eq
+    UserEQ --> EQ["🎼 Voicing EQ (+3dB/oct Warmth & HPF @ 60Hz)"]:::eq
+    EQ --> VB["🔊 virtualbass (Bankstown Sub-Harmonics)"]:::dynamics
+    VB --> MBComp["📊 multiband_compressor (8-Band LSP Peak Control)"]:::dynamics
+    MBComp --> Limiter["🛡️ limiter (Broadband Lookahead)"]:::limiter
+    Limiter --> LoudComp["👂 ell / elr (ISO-226 Loudness Comp)"]:::dynamics
 
-    LoudComp --> Copy["🔀 Split L/R"] :::input
+    LoudComp --> Copy["🔀 Split L/R"]:::input
 
-    Copy --> ConvLT["🔊 Tweeter FIR L<br/>(convLT)"] :::fir
-    Copy --> ConvRT["🔊 Tweeter FIR R<br/>(convRT)"] :::fir
-    Copy --> ConvLW["🔊 Woofer FIR L<br/>(convLW)"] :::fir
-    Copy --> ConvRW["🔊 Woofer FIR R<br/>(convRW)"] :::fir
+    Copy --> ConvLT["🔊 Tweeter FIR L (convLT)"]:::fir
+    Copy --> ConvRT["🔊 Tweeter FIR R (convRT)"]:::fir
+    Copy --> ConvLW["🔊 Woofer FIR L (convLW)"]:::fir
+    Copy --> ConvRW["🔊 Woofer FIR R (convRW)"]:::fir
 
-    ConvLT --> TLim["🛡️ tlim (-1dB)<br/>(Tweeter Limiter)"] :::limiter
+    ConvLT --> TLim["🛡️ tlim (-1dB Tweeter Limiter)"]:::limiter
     ConvRT --> TLim
-    ConvLW --> WLim["🛡️ wlim (-2dB)<br/>(Woofer Limiter)"] :::limiter
+    ConvLW --> WLim["🛡️ wlim (-2dB Woofer Limiter)"]:::limiter
     ConvRW --> WLim
 
-    TLim --> Out["🔈 RawSpeakers Sink"] :::input
+    TLim --> Out["🔈 RawSpeakers Sink"]:::input
     WLim --> Out
 ```
 
@@ -99,7 +99,7 @@ Customize tone settings without modifying calibrated internal DSP stages. `user_
 | **Reference (Flat)** | `1.00` | `1.00` | `1.00` | `1.00` | `1.00` | `1.00` | `1.00` | `1.00` |
 | **Rock / Pop** | `1.00` | `1.26` | `1.00` | `0.94` | `1.00` | `1.12` | `1.19` | `1.12` |
 | **Classical / Acoustic** | `1.00` | `1.00` | `1.06` | `1.00` | `1.00` | `1.00` | `1.12` | `1.12` |
-| `Electronic / Hip-Hop` | `1.26` | `1.19` | `1.00` | `0.94` | `1.00` | `1.00` | `1.06` | `1.00` |
+| **Electronic / Hip-Hop** | `1.26` | `1.19` | `1.00` | `0.94` | `1.00` | `1.00` | `1.06` | `1.00` |
 | **Movie (Dialogue Focus)**| `0.84` | `0.94` | `1.00` | `1.06` | `1.19` | `1.19` | `1.06` | `1.00` |
 | **Movie (Action / Bass)** | `1.41` | `1.12` | `1.00` | `1.00` | `1.00` | `1.06` | `1.12` | `1.12` |
 | **Late-Night (Low Level)** | `0.63` | `0.79` | `1.00` | `1.00` | `1.06` | `1.12` | `1.00` | `0.94` |
