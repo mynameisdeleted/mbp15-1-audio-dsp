@@ -147,16 +147,19 @@ If you have your own recalibrated FIRs, drop them at that path (or edit the six
 ./apply.sh
 ```
 
-`apply.sh` preflights before touching anything:
+`apply.sh`:
 
 1. validates `graph.json` is well-formed JSON (`python3` or `jq`)
-2. checks the `/usr/share/t2-linux-audio/15_1/` dir exists (§1)
-3. checks every FIR `.wav` **referenced by the graph** is present (§4)
-4. checks every LV2 plugin URI **the graph loads** resolves in `lv2ls` (§3)
+2. **builds the effective graph** → `~/.audiograph.json`: if `user_eq.json`
+   exists next to the script, its contents replace the `user_eq` node's
+   `control` block (`jq`); otherwise it's a straight copy of `graph.json` (§7)
+3. checks `/usr/share/t2-linux-audio/15_1/` exists (§1)
+4. checks every FIR `.wav` **referenced by the graph** is present (§4)
+5. checks every LV2 plugin URI **the graph loads** resolves in `lv2ls` (§3)
 
-then `sudo cp`s the graph into place, restarts WirePlumber, and confirms the
-sink came up. Steps 3–4 read the paths/URIs straight out of `graph.json`, so
-they stay correct if you edit it.
+then `sudo cp`s `~/.audiograph.json` into place, restarts WirePlumber, and
+confirms the sink came up. Steps 4–5 read the paths/URIs straight out of the
+merged graph, so they stay correct if you edit either file.
 
 Pass `-f` to skip the preflight (JSON validation still runs):
 
@@ -186,11 +189,19 @@ pw-top        # look for the filter-chain node, check for XRUN
 
 ## 7. Pick a sound profile
 
-`user_eq` is the first node in the graph and the only block meant for
-hand-editing — an 8-band tone control that defaults flat (= the reference
-voicing). Paste one of the preset rows from
-[README.md § User preference EQ](README.md#user-preference-eq) into its `control`
-block and re-run `./apply.sh`.
+`user_eq` is the first node in the graph — an 8-band tone control that defaults
+flat (= the reference voicing). To change it without touching the committed
+`graph.json`:
+
+```sh
+cp user_eq.example.json user_eq.json      # git-ignored
+$EDITOR user_eq.json                        # set the g_* values
+./apply.sh                                  # merges it into ~/.audiograph.json and installs
+```
+
+`jq` must be installed for this path. Delete `user_eq.json` to return to the
+default. Preset values (Rock, Classical, Movie–dialogue, …) are in
+[README.md § User preference EQ](README.md#user-preference-eq).
 
 ---
 

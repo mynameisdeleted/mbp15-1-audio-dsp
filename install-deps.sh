@@ -46,6 +46,13 @@ lv2_have http://plugin.org.uk/swh-plugins/fastLookaheadLimiter    && need_swh=0
 pkgs=()
 [ "$need_lsp" -eq 1 ] && pkgs+=(lsp-plugins)
 [ "$need_swh" -eq 1 ] && pkgs+=(swh-plugins)
+have jq || pkgs+=(jq)             # apply.sh needs jq for the user_eq override
+if ! have lv2ls; then
+    case "$PM" in
+        apt)               pkgs+=(lilv-utils) ;;
+        dnf|zypper|pacman) pkgs+=(lilv) ;;
+    esac
+fi
 
 if [ "${#pkgs[@]}" -gt 0 ]; then
     if [ -z "$PM" ]; then
