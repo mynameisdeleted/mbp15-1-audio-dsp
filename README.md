@@ -26,34 +26,48 @@ Upstream graphs (`asahi-audio` / `t2-apple-audio-dsp`) target a measurement-flat
 The signal flows through tone controls, dynamic management, ISO-226 loudness tracking, FIR driver correction, and physical driver protection limiters:
 
 ```mermaid
-flowchart LR
+flowchart TD
+    subgraph Stage1 ["1. Input & Voicing"]
+        In["🔊 Audio Input"]:::input --> UserEQ["🎚️ User EQ (8-Band Tone Control)"]:::eq
+        UserEQ --> EQ["🎼 Voicing EQ (+3dB/oct Warmth & 60Hz HPF)"]:::eq
+    end
+
+    subgraph Stage2 ["2. Dynamics & Headroom Management"]
+        EQ --> VB["🔊 Virtual Bass (Bankstown Sub-Harmonics)"]:::dynamics
+        VB --> MBComp["📊 Multiband Compressor (8-Band LSP)"]:::dynamics
+        MBComp --> Limiter["🛡️ Main Limiter (Broadband Lookahead)"]:::limiter
+        Limiter --> LoudComp["👂 Loudness Comp (ISO-226 Equal Loudness)"]:::dynamics
+    end
+
+    subgraph Stage3 ["3. Crossover & Driver FIR Correction"]
+        LoudComp --> Copy["🔀 4-Channel Crossover Splitter"]:::input
+        
+        subgraph Tweeters ["Tweeter Channels"]
+            Copy --> ConvLT["🔊 Tweeter L FIR (convLT)"]:::fir
+            Copy --> ConvRT["🔊 Tweeter R FIR (convRT)"]:::fir
+        end
+        
+        subgraph Woofers ["Woofer Channels"]
+            Copy --> ConvLW["🔊 Woofer L FIR (convLW)"]:::fir
+            Copy --> ConvRW["🔊 Woofer R FIR (convRW)"]:::fir
+        end
+    end
+
+    subgraph Stage4 ["4. Driver Safety Backstops & Output"]
+        ConvLT --> TLim["🛡️ Tweeter Limiter (-1 dB Ceiling)"]:::limiter
+        ConvRT --> TLim
+        ConvLW --> WLim["🛡️ Woofer Limiter (-2 dB Ceiling)"]:::limiter
+        ConvRW --> WLim
+
+        TLim --> Out["🔈 RawSpeakers Sink"]:::input
+        WLim --> Out
+    end
+
     classDef input fill:#2d3748,stroke:#4a5568,color:#fff;
     classDef eq fill:#2b6cb0,stroke:#3182ce,color:#fff;
     classDef dynamics fill:#d69e2e,stroke:#d69e2e,color:#000;
     classDef fir fill:#805ad5,stroke:#9f7aea,color:#fff;
     classDef limiter fill:#c53030,stroke:#e53e3e,color:#fff;
-
-    In["🔊 Audio Input"]:::input --> UserEQ["🎚️ user_eq (8-Band Prefs)"]:::eq
-    UserEQ --> EQ["🎼 Voicing EQ (+3dB/oct Warmth & HPF @ 60Hz)"]:::eq
-    EQ --> VB["🔊 virtualbass (Bankstown Sub-Harmonics)"]:::dynamics
-    VB --> MBComp["📊 multiband_compressor (8-Band LSP Peak Control)"]:::dynamics
-    MBComp --> Limiter["🛡️ limiter (Broadband Lookahead)"]:::limiter
-    Limiter --> LoudComp["👂 ell / elr (ISO-226 Loudness Comp)"]:::dynamics
-
-    LoudComp --> Copy["🔀 Split L/R"]:::input
-
-    Copy --> ConvLT["🔊 Tweeter FIR L (convLT)"]:::fir
-    Copy --> ConvRT["🔊 Tweeter FIR R (convRT)"]:::fir
-    Copy --> ConvLW["🔊 Woofer FIR L (convLW)"]:::fir
-    Copy --> ConvRW["🔊 Woofer FIR R (convRW)"]:::fir
-
-    ConvLT --> TLim["🛡️ tlim (-1dB Tweeter Limiter)"]:::limiter
-    ConvRT --> TLim
-    ConvLW --> WLim["🛡️ wlim (-2dB Woofer Limiter)"]:::limiter
-    ConvRW --> WLim
-
-    TLim --> Out["🔈 RawSpeakers Sink"]:::input
-    WLim --> Out
 ```
 
 ---
