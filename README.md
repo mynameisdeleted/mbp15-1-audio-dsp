@@ -205,9 +205,23 @@ compressed if pushed hard.
 | 6 | 6 kHz | bell | detail / sibilance |
 | 7 | 10 kHz | high shelf | air |
 
-Edit the `g_*` values in the `user_eq` `control` block. **Linear, not dB**
-(`+3 dB ≈ 1.41`, `−3 dB ≈ 0.71`). Keep each between `0.5` (−6 dB) and `2.0`
-(+6 dB). Run `./apply.sh` after.
+Values are **linear, not dB** (`+3 dB ≈ 1.41`, `−3 dB ≈ 0.71`). Keep each `g_*`
+between `0.5` (−6 dB) and `2.0` (+6 dB).
+
+Two ways to set it, both followed by `./apply.sh`:
+
+- **Override file (recommended, survives `git pull`).** Copy the template and
+  edit it:
+  ```sh
+  cp user_eq.example.json user_eq.json
+  $EDITOR user_eq.json
+  ```
+  `user_eq.json` is git-ignored. When present, `apply.sh` splices its contents
+  into the `user_eq` node's `control` block with `jq`, writes the result to
+  `~/.audiograph.json`, and installs that. Delete `user_eq.json` to go back to
+  the committed default.
+- **Edit `graph.json` directly** — change the `g_*` in the `user_eq` `control`
+  block. Simple, but a `git pull` will conflict.
 
 ### Presets — the 8 `g_*` values, `g_0`…`g_7`
 
