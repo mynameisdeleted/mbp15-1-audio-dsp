@@ -190,7 +190,7 @@
                 "plugin": "http://plugin.org.uk/swh-plugins/fastLookaheadLimiter",
                 "control": {
                     "ingain": 0,
-                    "limit": -2,
+                    "limit": 0,
                     "release": 0.25
                 }
             },
