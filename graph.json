@@ -8,7 +8,7 @@
                 "plugin": "http://lsp-plug.in/plugins/lv2/para_equalizer_x16_stereo",
                 "name": "user_eq",
                 "control": {
-                    "enabled": 1, "mode": 0, "g_in": 1.0, "g_out": 1.0,
+                    "enabled": 1, "mode": 0, "g_in": 1.0, "g_out": 1.5,
                     "ft_0": 5, "f_0": 70.0,    "g_0": 1.0, "q_0": 0.7, "s_0": 0,
                     "ft_1": 1, "f_1": 110.0,   "g_1": 1.0, "q_1": 1.0,
                     "ft_2": 1, "f_2": 220.0,   "g_2": 1.0, "q_2": 1.0,
