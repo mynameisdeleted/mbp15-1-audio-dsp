@@ -191,7 +191,7 @@
                 "control": {
                     "ingain": 0,
                     "limit": 0,
-                    "release": 0.25
+                    "release": 0.10
                 }
             },
             {
