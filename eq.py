@@ -90,8 +90,8 @@ def save_and_apply(eq_data):
     with open(USER_EQ_PATH, 'w') as f:
         json.dump(eq_data, f, indent=4)
     print(f"Saved {USER_EQ_PATH}")
-    print("Baking FIR filters & hot-reloading into PipeWire (zero audio drop)...")
-    subprocess.run([os.path.join(SCRIPT_DIR, "apply.sh"), "--bake", "--hot"])
+    print("Baking FIR filters & applying to PipeWire...")
+    subprocess.run([os.path.join(SCRIPT_DIR, "apply.sh"), "--bake"])
 
 def show_status(eq_data):
     print("=================================================================")
