@@ -39,7 +39,29 @@ graph TD
     F --> G2["Tweeter Drivers (Left / Right)"]
 ```
 
-### 2.2 Parallel Lookahead Sidechain Limiting
+### 2.2 Single-Pass FIR Baking Pipeline Process
+The FIR baking process in [`bake-graph.py`](file:///home/steve/w11/mbp15-1-audio-dsp/bake-graph.py) folds static LTI processing stages, latency reduction, target curves, and true-peak guarding directly into composite `.wav` impulse responses:
+
+```mermaid
+graph TD
+    A["Raw Acoustic Driver Measurement<br/>(White-Noise Impulse Response)"] --> B["White-to-Pink Voicing Curve<br/>(-3 dB/octave Tonal Tilt)"]
+    B --> C["User EQ Curves (user_eq.json)<br/>(Bass Shelves, Peaking EQs, Treble Shelves)"]
+    C --> D["Crossover Filters<br/>(Linkwitz-Riley High-Pass / Low-Pass)"]
+    
+    D --> E1["Main FIR Path:<br/>Latency Trimming to 5.0ms Lead"]
+    D --> E2["Lookahead Sidechain Path:<br/>Lead Trimmed to Peak Index (0.0ms Lead)"]
+
+    E1 --> F1["True-Peak ISP Guarding (-0.5 dBFS Ceiling)"]
+    E2 --> F2["True-Peak ISP Guarding (-0.5 dBFS Ceiling)"]
+
+    F1 --> G1["Tail Resolution Fadeout (2048-sample Cosine Window)"]
+    F2 --> G2["Tail Resolution Fadeout (2048-sample Cosine Window)"]
+
+    G1 --> H1["baked-woofers-*.wav / baked-tweeters-*.wav<br/>(Main Audio Path)"]
+    G2 --> H2["baked-lookahead-woofers-*.wav / baked-lookahead-tweeters-*.wav<br/>(5.0ms Advance Sidechain Path)"]
+```
+
+### 2.3 Parallel Lookahead Sidechain Limiting
 To prevent speaker cone over-excursion and thermal overload without adding buffer delay to the listener:
 
 1. **Main Path FIR (`baked-woofers-48k.wav` / `baked-tweeters-48k.wav`):**
