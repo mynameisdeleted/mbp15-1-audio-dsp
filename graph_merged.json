@@ -1,0 +1,502 @@
+{
+  "node.description": "MacBook Pro 15,1 Audio DSP",
+  "media.name": "MacBook Pro 15,1 Audio DSP",
+  "filter.graph": {
+    "nodes": [
+      {
+        "type": "lv2",
+        "plugin": "http://lsp-plug.in/plugins/lv2/para_equalizer_x16_stereo",
+        "name": "user_eq",
+        "control": {
+          "enabled": 1,
+          "mode": 0,
+          "g_in": 1.0,
+          "g_out": 1.50,
+          "ft_0": 5,
+          "f_0": 70.0,
+          "g_0": 1.00,
+          "q_0": 0.7,
+          "s_0": 0,
+          "ft_1": 1,
+          "f_1": 110.0,
+          "g_1": 1.05,
+          "q_1": 1.0,
+          "ft_2": 1,
+          "f_2": 315.0,
+          "g_2": 1.03,
+          "q_2": 1.0,
+          "ft_3": 1,
+          "f_3": 1000.0,
+          "g_3": 1.01,
+          "q_3": 1.0,
+          "ft_4": 1,
+          "f_4": 2500.0,
+          "g_4": 1.00,
+          "q_4": 1.0,
+          "ft_5": 1,
+          "f_5": 6000.0,
+          "g_5": 0.98,
+          "q_5": 1.0,
+          "ft_6": 3,
+          "f_6": 10000.0,
+          "g_6": 0.95,
+          "q_6": 0.7,
+          "ft_7": 3,
+          "f_7": 16000.0,
+          "g_7": 0.98,
+          "q_7": 0.7,
+          "s_7": 0
+        }
+      },
+      {
+        "type": "lv2",
+        "plugin": "https://chadmed.au/bankstown",
+        "name": "virtualbass",
+        "control": {
+          "amt": 1.4,
+          "floor": 40.0,
+          "ceil": 120.0,
+          "final_hp": 55.0,
+          "sat_second": 1.0,
+          "sat_third": 1.0,
+          "blend": 0.30
+        }
+      },
+      {
+        "type": "lv2",
+        "plugin": "http://lsp-plug.in/plugins/lv2/para_equalizer_x16_stereo",
+        "name": "equalizer",
+        "control": {
+          "enabled": 1,
+          "mode": 0,
+          "g_in": 1.0,
+          "g_out": 1.0,
+          "ft_0": 5,
+          "f_0": 40.0,
+          "g_0": 2.83,
+          "q_0": 0.70,
+          "ft_1": 1,
+          "f_1": 80.0,
+          "g_1": 2.00,
+          "q_1": 1.00,
+          "ft_2": 1,
+          "f_2": 160.0,
+          "g_2": 1.41,
+          "q_2": 1.00,
+          "ft_3": 1,
+          "f_3": 320.0,
+          "g_3": 1.00,
+          "q_3": 1.00,
+          "ft_4": 1,
+          "f_4": 640.0,
+          "g_4": 0.71,
+          "q_4": 1.00,
+          "ft_5": 1,
+          "f_5": 1280.0,
+          "g_5": 0.50,
+          "q_5": 1.00,
+          "ft_6": 1,
+          "f_6": 2560.0,
+          "g_6": 0.35,
+          "q_6": 1.00,
+          "ft_7": 3,
+          "f_7": 12000.0,
+          "g_7": 0.24,
+          "q_7": 0.70
+        }
+      },
+      {
+        "type": "lv2",
+        "plugin": "http://lsp-plug.in/plugins/lv2/loud_comp_stereo",
+        "name": "loudness",
+        "control": {
+          "enabled": 1,
+          "input": 1.0,
+          "fft": 4
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "copy",
+        "name": "copyL"
+      },
+      {
+        "type": "builtin",
+        "label": "copy",
+        "name": "copyR"
+      },
+      {
+        "type": "builtin",
+        "label": "convolver",
+        "name": "convLT",
+        "config": {
+          "filename": [
+            "/usr/share/t2-linux-audio/15_1/tweeters-44k.wav",
+            "/usr/share/t2-linux-audio/15_1/tweeters-48k.wav",
+            "/usr/share/t2-linux-audio/15_1/tweeters-96k.wav"
+          ],
+          "channel": 0,
+          "gain": 1.1
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "convolver",
+        "name": "convRT",
+        "config": {
+          "filename": [
+            "/usr/share/t2-linux-audio/15_1/tweeters-44k.wav",
+            "/usr/share/t2-linux-audio/15_1/tweeters-48k.wav",
+            "/usr/share/t2-linux-audio/15_1/tweeters-96k.wav"
+          ],
+          "channel": 0,
+          "gain": 1.1
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "convolver",
+        "name": "convLW",
+        "config": {
+          "filename": [
+            "/usr/share/t2-linux-audio/15_1/woofers-44k.wav",
+            "/usr/share/t2-linux-audio/15_1/woofers-48k.wav",
+            "/usr/share/t2-linux-audio/15_1/woofers-96k.wav"
+          ],
+          "channel": 0,
+          "gain": 1.2
+        }
+      },
+      {
+        "type": "builtin",
+        "label": "convolver",
+        "name": "convRW",
+        "config": {
+          "filename": [
+            "/usr/share/t2-linux-audio/15_1/woofers-44k.wav",
+            "/usr/share/t2-linux-audio/15_1/woofers-48k.wav",
+            "/usr/share/t2-linux-audio/15_1/woofers-96k.wav"
+          ],
+          "channel": 0,
+          "gain": 1.2
+        }
+      },
+      {
+        "type": "lv2",
+        "plugin": "http://lsp-plug.in/plugins/lv2/mb_compressor_stereo",
+        "name": "wmb_comp",
+        "control": {
+          "enabled": 1,
+          "mode": 1,
+          "g_in": 1.0,
+          "g_out": 1.0,
+          "g_dry": 0.0001,
+          "g_wet": 1.0,
+          "cbe_1": 1,
+          "sf_1": 40.0,
+          "cbe_2": 1,
+          "sf_2": 50.0,
+          "cbe_3": 1,
+          "sf_3": 60.0,
+          "cbe_4": 1,
+          "sf_4": 80.0,
+          "cbe_5": 1,
+          "sf_5": 120.0,
+          "cbe_6": 1,
+          "sf_6": 200.0,
+          "cbe_7": 1,
+          "sf_7": 500.0,
+          "ce_0": 1,
+          "at_0": 5.0,
+          "rt_0": 100.0,
+          "cr_0": 30.0,
+          "kn_0": 0.10,
+          "al_0": 0.95,
+          "mk_0": 1.0,
+          "bth_0": 1.0,
+          "bsa_0": 1.0,
+          "scm_0": 0,
+          "ce_1": 1,
+          "at_1": 6.0,
+          "rt_1": 110.0,
+          "cr_1": 30.0,
+          "kn_1": 0.10,
+          "al_1": 0.92,
+          "mk_1": 1.0,
+          "bth_1": 1.0,
+          "bsa_1": 1.0,
+          "scm_1": 0,
+          "ce_2": 1,
+          "at_2": 6.0,
+          "rt_2": 100.0,
+          "cr_2": 25.0,
+          "kn_2": 0.12,
+          "al_2": 0.90,
+          "mk_2": 1.0,
+          "bth_2": 1.0,
+          "bsa_2": 1.0,
+          "scm_2": 0,
+          "ce_3": 1,
+          "at_3": 5.0,
+          "rt_3": 90.0,
+          "cr_3": 20.0,
+          "kn_3": 0.12,
+          "al_3": 0.88,
+          "mk_3": 1.0,
+          "bth_3": 1.0,
+          "bsa_3": 1.0,
+          "scm_3": 0,
+          "ce_4": 1,
+          "at_4": 4.5,
+          "rt_4": 80.0,
+          "cr_4": 16.0,
+          "kn_4": 0.15,
+          "al_4": 0.85,
+          "mk_4": 1.0,
+          "bth_4": 1.0,
+          "bsa_4": 1.0,
+          "scm_4": 0,
+          "ce_5": 1,
+          "at_5": 4.0,
+          "rt_5": 60.0,
+          "cr_5": 10.0,
+          "kn_5": 0.20,
+          "al_5": 0.80,
+          "mk_5": 1.0,
+          "bth_5": 1.0,
+          "bsa_5": 1.0,
+          "scm_5": 0,
+          "ce_6": 1,
+          "at_6": 3.0,
+          "rt_6": 40.0,
+          "cr_6": 6.0,
+          "kn_6": 0.30,
+          "al_6": 0.80,
+          "mk_6": 1.0,
+          "bth_6": 1.0,
+          "bsa_6": 1.0,
+          "scm_6": 0,
+          "ce_7": 1,
+          "at_7": 2.5,
+          "rt_7": 30.0,
+          "cr_7": 4.0,
+          "kn_7": 0.40,
+          "al_7": 0.80,
+          "mk_7": 1.0,
+          "bth_7": 1.0,
+          "bsa_7": 1.0,
+          "scm_7": 0
+        }
+      },
+      {
+        "type": "lv2",
+        "plugin": "http://lsp-plug.in/plugins/lv2/mb_compressor_stereo",
+        "name": "tmb_comp",
+        "control": {
+          "enabled": 1,
+          "mode": 1,
+          "g_in": 1.0,
+          "g_out": 1.0,
+          "g_dry": 0.0001,
+          "g_wet": 1.0,
+          "cbe_1": 1,
+          "sf_1": 2500.0,
+          "cbe_2": 1,
+          "sf_2": 6000.0,
+          "cbe_3": 1,
+          "sf_3": 12000.0,
+          "ce_0": 1,
+          "at_0": 3.0,
+          "rt_0": 50.0,
+          "cr_0": 8.0,
+          "kn_0": 0.20,
+          "al_0": 0.85,
+          "mk_0": 1.0,
+          "bth_0": 1.0,
+          "bsa_0": 1.0,
+          "scm_0": 0,
+          "ce_1": 1,
+          "at_1": 2.5,
+          "rt_1": 40.0,
+          "cr_1": 6.0,
+          "kn_1": 0.30,
+          "al_1": 0.80,
+          "mk_1": 1.0,
+          "bth_1": 1.0,
+          "bsa_1": 1.0,
+          "scm_1": 0,
+          "ce_2": 1,
+          "at_2": 2.0,
+          "rt_2": 30.0,
+          "cr_2": 4.0,
+          "kn_2": 0.40,
+          "al_2": 0.75,
+          "mk_2": 1.0,
+          "bth_2": 1.0,
+          "bsa_2": 1.0,
+          "scm_2": 0,
+          "ce_3": 1,
+          "at_3": 1.5,
+          "rt_3": 20.0,
+          "cr_3": 3.0,
+          "kn_3": 0.50,
+          "al_3": 0.70,
+          "mk_3": 1.0,
+          "bth_3": 1.0,
+          "bsa_3": 1.0,
+          "scm_3": 0
+        }
+      },
+      {
+        "type": "lv2",
+        "name": "wlim",
+        "plugin": "http://plugin.org.uk/swh-plugins/fastLookaheadLimiter",
+        "control": {
+          "ingain": 0,
+          "limit": -2,
+          "release": 0.25
+        }
+      },
+      {
+        "type": "lv2",
+        "name": "tlim",
+        "plugin": "http://plugin.org.uk/swh-plugins/fastLookaheadLimiter",
+        "control": {
+          "ingain": 0,
+          "limit": -1,
+          "release": 0.15
+        }
+      }
+    ],
+    "links": [
+      {
+        "output": "user_eq:out_l",
+        "input": "virtualbass:in_l"
+      },
+      {
+        "output": "user_eq:out_r",
+        "input": "virtualbass:in_r"
+      },
+      {
+        "output": "virtualbass:out_l",
+        "input": "equalizer:in_l"
+      },
+      {
+        "output": "virtualbass:out_r",
+        "input": "equalizer:in_r"
+      },
+      {
+        "output": "equalizer:out_l",
+        "input": "loudness:in_l"
+      },
+      {
+        "output": "equalizer:out_r",
+        "input": "loudness:in_r"
+      },
+      {
+        "output": "loudness:out_l",
+        "input": "copyL:In"
+      },
+      {
+        "output": "loudness:out_r",
+        "input": "copyR:In"
+      },
+      {
+        "output": "copyL:Out",
+        "input": "convLT:In"
+      },
+      {
+        "output": "copyL:Out",
+        "input": "convLW:In"
+      },
+      {
+        "output": "copyR:Out",
+        "input": "convRT:In"
+      },
+      {
+        "output": "copyR:Out",
+        "input": "convRW:In"
+      },
+      {
+        "output": "convLW:Out",
+        "input": "wmb_comp:in_l"
+      },
+      {
+        "output": "convRW:Out",
+        "input": "wmb_comp:in_r"
+      },
+      {
+        "output": "wmb_comp:out_l",
+        "input": "wlim:in_1"
+      },
+      {
+        "output": "wmb_comp:out_r",
+        "input": "wlim:in_2"
+      },
+      {
+        "output": "convLT:Out",
+        "input": "tmb_comp:in_l"
+      },
+      {
+        "output": "convRT:Out",
+        "input": "tmb_comp:in_r"
+      },
+      {
+        "output": "tmb_comp:out_l",
+        "input": "tlim:in_1"
+      },
+      {
+        "output": "tmb_comp:out_r",
+        "input": "tlim:in_2"
+      }
+    ],
+    "inputs": [
+      "user_eq:in_l",
+      "user_eq:in_r"
+    ],
+    "outputs": [
+      "wlim:out_1",
+      "wlim:out_2",
+      "tlim:out_1",
+      "tlim:out_2"
+    ]
+  },
+  "capture.props": {
+    "node.name": "audio_effect.t2-151-speakers",
+    "media.class": "Audio/Sink",
+    "audio.channels": "2",
+    "audio.position": [
+      "FL",
+      "FR"
+    ],
+    "device.api": "dsp",
+    "audio.allowed-rates": [
+      48000,
+      44100
+    ],
+    "node.virtual": "false",
+    "priority.session": 2500,
+    "priority.driver": 2500,
+    "state.default-volume": 1.0,
+    "device.icon-name": "audio-speakers"
+  },
+  "playback.props": {
+    "node.name": "effect_output.t2-151-speakers",
+    "node.description": "MacBook Pro 15,1 DSP Speakers Out",
+    "media.name": "MacBook Pro 15,1 DSP Speakers Out",
+    "target.object": "alsa_output.platform-sound.RawSpeakers",
+    "node.dont-fallback": "true",
+    "node.passive": "true",
+    "audio.channels": "4",
+    "audio.allowed-rates": [
+      48000,
+      44100
+    ],
+    "audio.position": [
+      "FL",
+      "FR",
+      "RL",
+      "RR"
+    ]
+  }
+}

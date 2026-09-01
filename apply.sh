@@ -33,14 +33,6 @@ done
 have() { command -v "$1" >/dev/null 2>&1; }
 die()  { echo "Error: $*" >&2; exit 1; }
 
-if [ "$SIMPLE" -eq 1 ]; then
-    echo "==> Baking static DSP stages into single-stage FIR files..."
-    python3 "$SCRIPT_DIR/bake-graph.py" || die "bake-graph.py failed"
-    GRAPH_SRC="$SCRIPT_DIR/graph_simple.json"
-    echo "==> Installing baked FIR files -> /usr/share/t2-linux-audio/15_1/"
-    sudo cp "$SCRIPT_DIR/15_1/baked-"*.wav "/usr/share/t2-linux-audio/15_1/" 2>/dev/null || true
-fi
-
 # --- json validation helper -------------------------------------------
 json_ok() {
     have python3 && { python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$1" 2>/dev/null && return 0; return 1; }
@@ -53,7 +45,8 @@ json_ok "$GRAPH_SRC"; rc=$?
 [ "$rc" -eq 2 ] && echo "warn: no python3/jq - skipping JSON validation"
 [ "$rc" -eq 0 ] && echo "ok: graph.json is valid JSON"
 
-# --- build the effective graph -> ~/.audiograph.json --------------------
+# --- build the effective graph ------------------------------------------
+MERGED_SRC="$SCRIPT_DIR/graph_merged.json"
 if [ -f "$OVERRIDE" ]; then
     have jq || die "$OVERRIDE exists but jq is not installed"
     jq -e . "$OVERRIDE" >/dev/null 2>&1 || die "$OVERRIDE is not valid JSON"
@@ -61,12 +54,24 @@ if [ -f "$OVERRIDE" ]; then
         || die "$GRAPH_SRC has no node named user_eq to override"
     jq --slurpfile ov "$OVERRIDE" \
        '(.["filter.graph"].nodes[] | select(.name == "user_eq") | .control) = $ov[0]' \
-       "$GRAPH_SRC" > "$MERGED" || die "jq merge failed"
-    echo "ok: merged user_eq.json -> $MERGED"
+       "$GRAPH_SRC" > "$MERGED_SRC" || die "jq merge failed"
+    echo "ok: merged user_eq.json -> $MERGED_SRC"
 else
-    cp "$GRAPH_SRC" "$MERGED"
-    echo "ok: no user_eq.json - graph as-is -> $MERGED"
+    cp "$GRAPH_SRC" "$MERGED_SRC"
+    echo "ok: no user_eq.json - graph as-is -> $MERGED_SRC"
 fi
+
+if [ "$SIMPLE" -eq 1 ]; then
+    echo "==> Baking static DSP stages into single-stage FIR files..."
+    python3 "$SCRIPT_DIR/bake-graph.py" "$MERGED_SRC" || die "bake-graph.py failed"
+    GRAPH_SRC="$SCRIPT_DIR/graph_simple.json"
+    echo "==> Installing baked FIR files -> /usr/share/t2-linux-audio/15_1/"
+    sudo cp -f "$SCRIPT_DIR/laptop-configs/apple/mbp15_1/baked-"*.wav "/usr/share/t2-linux-audio/15_1/" 2>/dev/null || true
+else
+    GRAPH_SRC="$MERGED_SRC"
+fi
+
+cp "$GRAPH_SRC" "$MERGED"
 
 json_ok "$MERGED"; rc=$?
 [ "$rc" -eq 1 ] && die "merged graph $MERGED is not valid JSON"

@@ -272,24 +272,67 @@ def apply_pink_noise_target_filter(samples, fs=48000, f_ref=1000.0):
     pink_samples = [ifft_vals[k].real / pad_len for k in range(N)]
     return pink_samples
 
-def bake_driver_ir(src_wav, dst_wav, is_woofer=False, driver_gain=1.0):
+def extract_biquads_from_node(node, fs):
+    biquads = []
+    control = node.get("control", {})
+    if control.get("enabled", 1) == 0:
+        return biquads
+
+    for i in range(16):
+        f_key = f"f_{i}"
+        g_key = f"g_{i}"
+        q_key = f"q_{i}"
+        ft_key = f"ft_{i}"
+        if f_key not in control:
+            break
+        f = control[f_key]
+        g_lin = control.get(g_key, 1.0)
+        q = control.get(q_key, 0.7071)
+        ft = control.get(ft_key, 1)
+
+        if g_lin <= 0.0001:
+            gain_db = -80.0
+        else:
+            gain_db = 20.0 * math.log10(g_lin)
+
+        if abs(gain_db) < 0.001 or ft == 0:
+            continue
+
+        if ft == 1:
+            coeffs = biquad_peaking(fs, f, gain_db, q)
+        elif ft == 3:
+            coeffs = biquad_highshelf(fs, f, gain_db, q)
+        elif ft == 5:
+            coeffs = biquad_lowshelf(fs, f, gain_db, q)
+        else:
+            continue
+
+        biquads.append(coeffs)
+    return biquads
+
+def bake_driver_ir(src_wav, dst_wav, is_woofer=False, driver_gain=1.0, biquads=[]):
     if not os.path.exists(src_wav):
         print(f"Warning: {src_wav} not found, skipping.")
         return False
     
     samples, fs = read_wav_floats(src_wav)
 
-    # 1. Optimize Latency (5ms Lead) + Extend Woofer/Tweeter Lopsided Tail Resolution
+    # 1. Convolve all static LTI biquad stages (User EQ + Voicing EQ) directly into driver IR
+    for coeffs in biquads:
+        b0, b1, b2, a0, a1, a2 = coeffs
+        samples = apply_biquad_to_samples(b0, b1, b2, a0, a1, a2, samples)
+
+    # 2. Optimize Latency (5ms Lead) + Extend Woofer/Tweeter Lopsided Tail Resolution
     samples = optimize_fir_latency_and_tail(samples, fs=fs, is_woofer=is_woofer)
 
-    # 2. True-Peak Inter-Sample Peak (ISP) Guarding (-0.5 dBFS ceiling)
+    # 3. True-Peak Inter-Sample Peak (ISP) Guarding (-0.5 dBFS ceiling)
     samples = apply_true_peak_guard(samples, max_allowed_dbfs=-0.5)
 
     write_wav_floats(dst_wav, samples, fs)
-    print(f"==> Baked {os.path.basename(dst_wav)} ({fs} Hz, {len(samples)} taps, gain={driver_gain}x)")
+    print(f"==> Baked {os.path.basename(dst_wav)} ({fs} Hz, {len(samples)} taps, {len(biquads)} biquads convolved)")
     return True
 
-def generate_simple_graph_and_bake(profile_dir=None):
+def generate_simple_graph_and_bake(profile_dir=None, input_graph_path=None):
     if not profile_dir:
         try:
             import detect_hardware
@@ -300,9 +343,12 @@ def generate_simple_graph_and_bake(profile_dir=None):
     if not profile_dir or not os.path.exists(profile_dir):
         profile_dir = os.path.join(SCRIPT_DIR, "15_1")
 
-    graph_path = os.path.join(profile_dir, "graph.json")
-    if not os.path.exists(graph_path):
-        graph_path = os.path.join(SCRIPT_DIR, "graph.json")
+    if input_graph_path and os.path.exists(input_graph_path):
+        graph_path = input_graph_path
+    else:
+        graph_path = os.path.join(profile_dir, "graph.json")
+        if not os.path.exists(graph_path):
+            graph_path = os.path.join(SCRIPT_DIR, "graph.json")
 
     simple_graph_path = os.path.join(SCRIPT_DIR, "graph_simple.json")
     
@@ -320,7 +366,7 @@ def generate_simple_graph_and_bake(profile_dir=None):
     nodes = graph.get("filter.graph", {}).get("nodes", [])
     
     # 1. Discover all convolver nodes and their input WAV files dynamically from graph.json
-    convolver_tasks = {} # maps src_filename -> {is_woofer, gain, sys_dst_path, repo_dst_path}
+    convolver_tasks = {} # maps raw_basename -> task dict
 
     for node in nodes:
         if node.get("label") == "convolver" or "conv" in node.get("name", ""):
@@ -331,69 +377,96 @@ def generate_simple_graph_and_bake(profile_dir=None):
             is_woofer = ("woofer" in name.lower() or "convlw" in name.lower() or "convrw" in name.lower())
 
             for sys_path in filenames:
-                basename = os.path.basename(sys_path)
-                if not basename in convolver_tasks:
-                    if "woofer" in basename.lower():
+                raw_basename = os.path.basename(sys_path).replace("baked-", "")
+                if not raw_basename in convolver_tasks:
+                    if "woofer" in raw_basename.lower():
                         is_woofer = True
-                    baked_basename = "baked-" + basename
+                    baked_basename = "baked-" + raw_basename
                     repo_dst_path = os.path.join(repo_151, baked_basename)
                     sys_dst_path = os.path.join(sys_dir, baked_basename)
-                    convolver_tasks[sys_path] = {
-                        "basename": basename,
+                    convolver_tasks[raw_basename] = {
+                        "raw_basename": raw_basename,
+                        "baked_basename": baked_basename,
                         "is_woofer": is_woofer,
                         "gain": gain,
                         "repo_dst": repo_dst_path,
                         "sys_dst": sys_dst_path
                     }
 
-    # 2. Bake FIR files dynamically for all discovered WAV targets
-    for sys_path, task in convolver_tasks.items():
-        basename = task["basename"]
-        src_path = os.path.join(repo_151, basename)
-        if not os.path.exists(src_path) and os.path.exists(sys_path):
-            src_path = sys_path
-        if not os.path.exists(src_path) and os.path.exists(os.path.join(SCRIPT_DIR, basename)):
-            src_path = os.path.join(SCRIPT_DIR, basename)
+    # 2. Discover all static biquad EQ nodes (user_eq and equalizer) to convolve into FIR targets
+    biquad_nodes = [node for node in nodes if node.get("name") in ["user_eq", "equalizer"]]
+
+    # 3. Bake FIR files dynamically for all discovered WAV targets from PURE raw measurement source files
+    for raw_basename, task in convolver_tasks.items():
+        src_path = os.path.join(repo_151, raw_basename)
+        if not os.path.exists(src_path):
+            src_path = os.path.join(SCRIPT_DIR, "15_1", raw_basename)
+        if not os.path.exists(src_path):
+            src_path = os.path.join(SCRIPT_DIR, raw_basename)
+        if not os.path.exists(src_path):
+            src_path = os.path.join(sys_dir, raw_basename)
+
+        if not os.path.exists(src_path):
+            print(f"Warning: Raw measurement source {raw_basename} not found in {repo_151} or {sys_dir}.")
+            continue
+
+        # Read src_path to determine sample rate fs for exact biquad coefficient generation
+        _, fs = read_wav_floats(src_path)
+        biquads = []
+        for bnode in biquad_nodes:
+            biquads.extend(extract_biquads_from_node(bnode, fs))
 
         bake_driver_ir(
             src_wav=src_path,
             dst_wav=task["repo_dst"],
             is_woofer=task["is_woofer"],
-            driver_gain=task["gain"]
+            driver_gain=task["gain"],
+            biquads=biquads
         )
 
-    # 3. Build graph_simple.json dynamically from graph.json
+    # 3. Build graph_simple.json dynamically from graph.json (omitting user_eq, equalizer, and whp* nodes)
     graph["node.description"] = "MacBook Pro 15,1 DSP Speakers (Baked FIR Crossovers & Latency Trimming)"
     new_nodes = []
 
     for node in nodes:
         name = node.get("name", "")
-        if name in ["whpL1", "whpL2", "whpR1", "whpR2"]:
+        # Omit user_eq, equalizer (baked into FIRs), and whp* crossover nodes
+        if name in ["user_eq", "equalizer", "whpL1", "whpL2", "whpR1", "whpR2"]:
             continue
 
         if node.get("label") == "convolver" or "conv" in name:
             orig_filenames = node.get("config", {}).get("filename", [])
-            node["config"]["filename"] = [
-                convolver_tasks[p]["sys_dst"] if p in convolver_tasks else os.path.join(sys_dir, "baked-" + os.path.basename(p))
-                for p in orig_filenames
-            ]
+            baked_fns = []
+            for p in orig_filenames:
+                rb = os.path.basename(p).replace("baked-", "")
+                if rb in convolver_tasks:
+                    baked_fns.append(convolver_tasks[rb]["sys_dst"])
+                else:
+                    baked_fns.append(os.path.join(sys_dir, "baked-" + rb))
+            node["config"]["filename"] = baked_fns
 
         new_nodes.append(node)
 
-    # Re-wire links: filter out removed whp* crossover nodes
+    # Re-wire links: filter out removed user_eq, equalizer & whp* crossover links
     links = graph.get("filter.graph", {}).get("links", [])
     new_links = []
     for link in links:
         out_node = link.get("output", "")
         in_node = link.get("input", "")
-        if "whp" in out_node or "whp" in in_node:
+        if ("user_eq" in out_node or "user_eq" in in_node or
+            "equalizer" in out_node or "equalizer" in in_node or
+            "whp" in out_node or "whp" in in_node):
             continue
         new_links.append(link)
 
-    # Set graph inputs directly to user_eq (first node in processing chain)
+    # Wire virtualbass -> loudness (stereo)
+    new_links.append({"output": "virtualbass:out_l", "input": "loudness:in_l"})
+    new_links.append({"output": "virtualbass:out_r", "input": "loudness:in_r"})
+
+    # Set graph inputs directly to virtualbass (first active node in simplified processing chain)
     graph["filter.graph"]["inputs"] = [
-        "user_eq:in_l",
-        "user_eq:in_r"
+        "virtualbass:in_l",
+        "virtualbass:in_r"
     ]
 
     # Remove capture.volumes from filter.graph if present
@@ -424,7 +497,8 @@ def main():
     print("=================================================================")
     print("  SINGLE-STAGE FIR CONVOLVER BAKER & GRAPH SIMPLIFIER")
     print("=================================================================")
-    generate_simple_graph_and_bake()
+    input_graph = sys.argv[1] if len(sys.argv) > 1 else None
+    generate_simple_graph_and_bake(input_graph_path=input_graph)
     print("=================================================================")
     print("Done! Baked FIR files & graph_simple.json created.")
 
