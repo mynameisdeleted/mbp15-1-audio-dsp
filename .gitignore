@@ -3,3 +3,8 @@
 
 # Local user_eq override consumed by apply.sh (copy from user_eq.example.json)
 /user_eq.json
+
+# Generated baked single-stage FIR files & simple graph
+/baked-*.wav
+/graph_simple.json
+

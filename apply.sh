@@ -19,7 +19,19 @@ MERGED="$HOME/.audiograph.json"
 GRAPH_DST="/usr/share/t2-linux-audio/15_1/graph.json"
 
 FORCE=0
-case "${1:-}" in -f|--force|--no-check) FORCE=1 ;; esac
+SIMPLE=0
+for arg in "${@:-}"; do
+    case "$arg" in
+        -f|--force|--no-check) FORCE=1 ;;
+        -b|--bake|--simple) SIMPLE=1 ;;
+    esac
+done
+
+if [ "$SIMPLE" -eq 1 ]; then
+    echo "==> Baking static DSP stages into single-stage FIR files..."
+    python3 "$SCRIPT_DIR/bake-graph.py" || die "bake-graph.py failed"
+    GRAPH_SRC="$SCRIPT_DIR/graph_simple.json"
+fi
 
 have() { command -v "$1" >/dev/null 2>&1; }
 die()  { echo "Error: $*" >&2; exit 1; }
@@ -81,6 +93,10 @@ if [ "$FORCE" -eq 0 ]; then
 fi
 
 # --- install ----------------------------------------------------------
+if [ "$SIMPLE" -eq 1 ]; then
+    echo "Installing baked FIR WAV files -> /usr/share/t2-linux-audio/15_1/"
+    sudo cp "$SCRIPT_DIR"/baked-*.wav /usr/share/t2-linux-audio/15_1/
+fi
 echo "Installing $MERGED -> $GRAPH_DST"
 sudo cp "$MERGED" "$GRAPH_DST"
 
