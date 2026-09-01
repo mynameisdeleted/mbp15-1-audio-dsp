@@ -28,18 +28,18 @@ $$\text{FIR}_{\text{baked}}(t) = \text{EQ}_{\text{user}}(t) * \text{EQ}_{\text{v
 ```mermaid
 graph TD
     A["Raw Audio Input (FL / FR)"] --> B["Bankstown VirtualBass (2nd/3rd Order Harmonics)"]
-    B -->|4-Channel Direct Feed| C1["Woofer Main FIR (baked-woofers-*.wav)<br/>Bakes User EQ + Crossover (5.0ms Lead)"]
-    B -->|4-Channel Direct Feed| C2["Woofer Lookahead FIR (baked-lookahead-woofers-*.wav)<br/>Bakes User EQ + Crossover (0.0ms Lead)"]
-    B -->|4-Channel Direct Feed| D1["Tweeter Main FIR (baked-tweeters-*.wav)<br/>Bakes User EQ + Crossover (5.0ms Lead)"]
-    B -->|4-Channel Direct Feed| D2["Tweeter Lookahead FIR (baked-lookahead-tweeters-*.wav)<br/>Bakes User EQ + Crossover (0.0ms Lead)"]
+    B -->|4-Channel Direct Feed| C1["Woofer Left FIR (baked-woofers-*.wav)"]
+    B -->|4-Channel Direct Feed| C2["Woofer Right FIR (baked-woofers-*.wav)"]
+    B -->|4-Channel Direct Feed| D1["Tweeter Left FIR (baked-tweeters-*.wav)"]
+    B -->|4-Channel Direct Feed| D2["Tweeter Right FIR (baked-tweeters-*.wav)"]
     
-    C1 --> E["Woofer Limiter (wlim:in)"]
-    C2 -->|Sidechain Advance| E
-    D1 --> F["Tweeter Limiter (tlim:in)"]
-    D2 -->|Sidechain Advance| F
+    C1 --> E1["Woofer Limiter / Dynamic Protection (wlim:in_1)"]
+    C2 --> E1["Woofer Limiter / Dynamic Protection (wlim:in_2)"]
+    D1 --> F1["Tweeter Limiter / Dynamic Protection (tlim:in_1)"]
+    D2 --> F1["Tweeter Limiter / Dynamic Protection (tlim:in_2)"]
 
-    E --> G1["Woofer Drivers (Left / Right)"]
-    F --> G2["Tweeter Drivers (Left / Right)"]
+    E1 --> G1["Woofer Drivers (Left / Right)"]
+    F1 --> G2["Tweeter Drivers (Left / Right)"]
 ```
 
 ### 2.2 Single-Pass FIR Baking Pipeline Process
@@ -50,29 +50,17 @@ graph TD
     A["Raw Acoustic Driver Measurement<br/>(White-Noise Impulse Response)"] --> B["White-to-Pink Voicing Curve<br/>(-3 dB/octave Tonal Tilt)"]
     B --> C["User EQ Curves (user_eq.json)<br/>(Bass Shelves, Peaking EQs, Treble Shelves)"]
     C --> D["Crossover Filters<br/>(Linkwitz-Riley High-Pass / Low-Pass)"]
-    
-    D --> E1["Main FIR Path:<br/>Latency Trimming to 5.0ms Lead"]
-    D --> E2["Lookahead Sidechain Path:<br/>Lead Trimmed to Peak Index (0.0ms Lead)"]
-
-    E1 --> F1["True-Peak ISP Guarding (-0.5 dBFS Ceiling)"]
-    E2 --> F2["True-Peak ISP Guarding (-0.5 dBFS Ceiling)"]
-
-    F1 --> G1["Tail Resolution Fadeout (2048-sample Cosine Window)"]
-    F2 --> G2["Tail Resolution Fadeout (2048-sample Cosine Window)"]
-
-    G1 --> H1["baked-woofers-*.wav / baked-tweeters-*.wav<br/>(Main Audio Path)"]
-    G2 --> H2["baked-lookahead-woofers-*.wav / baked-lookahead-tweeters-*.wav<br/>(5.0ms Advance Sidechain Path)"]
+    D --> E["Latency Trimming (5.0ms Lead Optimization)"]
+    E --> F["True-Peak ISP Guarding (-0.5 dBFS Ceiling)"]
+    F --> G["Tail Resolution Fadeout (2048-sample Cosine Window)"]
+    G --> H["baked-woofers-*.wav / baked-tweeters-*.wav<br/>(Single-Pass Baked Driver FIRs)"]
 ```
 
-### 2.3 Parallel Lookahead Sidechain Limiting
-To prevent speaker cone over-excursion and thermal overload without adding buffer delay to the listener:
+### 2.3 Post-Convolver Quad-Driver Limiting & Protection
+To prevent speaker cone over-excursion and thermal overload without CPU convolver overhead:
 
-1. **Main Path FIR (`baked-woofers-48k.wav` / `baked-tweeters-48k.wav`):**
-   * Trims impulse response pre-delay lead to exactly **5.0 ms** ($240\text{ samples}$ @ $48\text{ kHz}$).
-   * Delays the main audio peak relative to playback start by $5.0\text{ ms}$.
-2. **Parallel Lookahead Sidechain FIR (`baked-lookahead-woofers-48k.wav` / `baked-lookahead-tweeters-48k.wav`):**
-   * Starts directly at the absolute peak index ($0.0\text{ ms}$ lead).
-   * Outputs peak control signals **5.0 ms ahead** of the main audio path.
+1. **Post-Convolver Weighting:** Fast lookahead limiters (`wlim` and `tlim`) operate directly on the 4 post-convolver driver channels, accurately measuring the exact equalized waveform present at the driver terminals.
+2. **Dedicated Driver Thresholds:** Woofers (`wlim`) and Tweeters (`tlim`) have independent limit thresholds (`-2 dBFS` for woofers, `-1 dBFS` for tweeters) and release characteristics tuned specifically for their respective physical driver excursion limits.
 3. **Zero Added Listener Latency:**
    * Post-convolver limiters (`wlim` and `tlim`) receive peak warnings 5.0 ms before the audio reaches the speaker drivers.
    * **Added buffer latency for the listener: `0.0 ms`.**
