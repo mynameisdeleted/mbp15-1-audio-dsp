@@ -5,6 +5,7 @@
 /user_eq.json
 
 # Generated baked single-stage FIR files & simple graph
+/15_1/baked-*.wav
 /baked-*.wav
 /graph_simple.json
 

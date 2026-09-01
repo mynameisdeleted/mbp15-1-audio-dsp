@@ -136,20 +136,72 @@ def write_wav_floats(filepath, samples, framerate):
     with open(filepath, 'wb') as f:
         f.write(riff_header + fmt_header + data_header + data)
 
-def bake_driver_ir(src_wav, dst_wav, is_woofer=False, hp_freq=180.0):
+def optimize_fir_latency_and_tail(samples, fs=48000, is_woofer=False):
+    # 1. Find absolute peak index
+    peak_idx = 0
+    max_val = 0.0
+    for i, s in enumerate(samples):
+        if abs(s) > max_val:
+            max_val = abs(s)
+            peak_idx = i
+
+    # 5.0 ms pre-peak lead (240 samples @ 48kHz) to eliminate phase artifacts & ringing
+    lead_target = int(0.005 * fs)
+    lead_len = min(lead_target, peak_idx)
+    start_idx = peak_idx - lead_len
+    
+    # Calculate energy of original vs cropped
+    total_energy = sum(s*s for s in samples)
+    cropped = samples[start_idx:]
+    
+    # Apply smooth 64-sample cosine fade-in on the 5ms lead (zero phase click/ripple)
+    fade_in_len = min(64, lead_len)
+    for i in range(fade_in_len):
+        fade = 0.5 * (1.0 - math.cos(math.pi * i / max(fade_in_len, 1)))
+        cropped[i] *= fade
+
+    # Energy compensation: Scale post-lead tail energy to preserve 100% total acoustic energy
+    cropped_energy = sum(s*s for s in cropped)
+    if cropped_energy > 0 and total_energy > 0:
+        boost_factor = math.sqrt(total_energy / cropped_energy)
+        for i in range(lead_len, len(cropped)):
+            cropped[i] *= boost_factor
+
+    # 2. Lopsided Tail Extension: 16,384 taps for woofers, 8,192 taps for tweeters
+    target_len = 16384 if is_woofer else 8192
+    if len(cropped) < target_len:
+        tail_pad = target_len - len(cropped)
+        cropped.extend([0.0] * tail_pad)
+    elif len(cropped) > target_len:
+        cropped = cropped[:target_len]
+
+    # Smooth exponential tail fadeout over last 2048 samples
+    fade_len = 2048
+    for i in range(fade_len):
+        idx = len(cropped) - fade_len + i
+        fade = 0.5 * (1.0 + math.cos(math.pi * i / fade_len))
+        cropped[idx] *= fade
+
+    return cropped
+
+def bake_driver_ir(src_wav, dst_wav, is_woofer=False, hp_freq=180.0, driver_gain=1.0):
     if not os.path.exists(src_wav):
         print(f"Warning: {src_wav} not found, skipping.")
         return False
     
     samples, fs = read_wav_floats(src_wav)
+
+    # 1. Apply Driver Gain Multiplier (e.g., 1.1 for tweeters, 1.2 for woofers)
+    if driver_gain != 1.0:
+        samples = [s * driver_gain for s in samples]
     
-    # 1. Apply Crossover Filter if Woofer
+    # 2. Apply Crossover Filter if Woofer
     if is_woofer:
         b0, b1, b2, a0, a1, a2 = biquad_highpass(fs, hp_freq)
         samples = process_biquad(samples, b0, b1, b2, a0, a1, a2)
         samples = process_biquad(samples, b0, b1, b2, a0, a1, a2) # LR4 (2-stage)
 
-    # 2. Apply User EQ Boosts (if user_eq.json exists)
+    # 3. Apply User EQ Boosts (if user_eq.json exists)
     user_eq_path = os.path.join(SCRIPT_DIR, "user_eq.json")
     if os.path.exists(user_eq_path):
         try:
@@ -170,8 +222,11 @@ def bake_driver_ir(src_wav, dst_wav, is_woofer=False, hp_freq=180.0):
         except Exception as e:
             print(f"User EQ processing note: {e}")
 
+    # 4. Optimize Latency (5ms Lead) + Extend Woofer/Tweeter Lopsided Tail Resolution
+    samples = optimize_fir_latency_and_tail(samples, fs=fs, is_woofer=is_woofer)
+
     write_wav_floats(dst_wav, samples, fs)
-    print(f"==> Baked {os.path.basename(dst_wav)} ({fs} Hz, {len(samples)} taps)")
+    print(f"==> Baked {os.path.basename(dst_wav)} ({fs} Hz, {len(samples)} taps, gain={driver_gain}x)")
     return True
 
 def generate_simple_graph():
@@ -198,21 +253,22 @@ def generate_simple_graph():
         if name in ["user_eq", "equalizer", "whpL1", "whpL2", "whpR1", "whpR2"]:
             continue
         
+        repo_151 = os.path.join(SCRIPT_DIR, "15_1")
         if name in ["convLT", "convRT"]:
             node["config"]["filename"] = [
-                "/usr/share/t2-linux-audio/15_1/baked-tweeters-44k.wav",
-                "/usr/share/t2-linux-audio/15_1/baked-tweeters-48k.wav",
-                "/usr/share/t2-linux-audio/15_1/baked-tweeters-96k.wav"
+                os.path.join(repo_151, "baked-tweeters-44k.wav"),
+                os.path.join(repo_151, "baked-tweeters-48k.wav"),
+                os.path.join(repo_151, "baked-tweeters-96k.wav")
             ]
         elif name in ["convLW", "convRW"]:
             node["config"]["filename"] = [
-                "/usr/share/t2-linux-audio/15_1/baked-woofers-44k.wav",
-                "/usr/share/t2-linux-audio/15_1/baked-woofers-48k.wav",
-                "/usr/share/t2-linux-audio/15_1/baked-woofers-96k.wav"
+                os.path.join(repo_151, "baked-woofers-44k.wav"),
+                os.path.join(repo_151, "baked-woofers-48k.wav"),
+                os.path.join(repo_151, "baked-woofers-96k.wav")
             ]
         new_nodes.append(node)
 
-    # Re-wire links directly from copy/delay to convolvers
+    # Re-wire links: filter out references to omitted nodes (user_eq, equalizer, whp*)
     links = graph.get("filter.graph", {}).get("links", [])
     new_links = []
     for link in links:
@@ -222,9 +278,11 @@ def generate_simple_graph():
             continue
         new_links.append(link)
 
-    # Directly link spkdly to convolvers
-    new_links.append({"output": "spkdlyL:Out", "input": "convLW:In"})
-    new_links.append({"output": "spkdlyR:Out", "input": "convRW:In"})
+    # Set graph inputs to virtualbass (first remaining processing node)
+    graph["filter.graph"]["inputs"] = [
+        "virtualbass:in_l",
+        "virtualbass:in_r"
+    ]
 
     graph["filter.graph"]["nodes"] = new_nodes
     graph["filter.graph"]["links"] = new_links
@@ -239,25 +297,31 @@ def main():
     print("  SINGLE-STAGE FIR CONVOLVER BAKER & GRAPH SIMPLIFIER")
     print("=================================================================")
     
+    repo_151 = os.path.join(SCRIPT_DIR, "15_1")
     sys_dir = "/usr/share/t2-linux-audio/15_1"
+    os.makedirs(repo_151, exist_ok=True)
     rates = ["44k", "48k", "96k"]
 
     for r in rates:
         tw_name = f"tweeters-{r}.wav"
-        tw_src = os.path.join(SCRIPT_DIR, tw_name)
+        tw_src = os.path.join(repo_151, tw_name)
         if not os.path.exists(tw_src) and os.path.exists(os.path.join(sys_dir, tw_name)):
             tw_src = os.path.join(sys_dir, tw_name)
+        if not os.path.exists(tw_src) and os.path.exists(os.path.join(SCRIPT_DIR, tw_name)):
+            tw_src = os.path.join(SCRIPT_DIR, tw_name)
 
-        tw_dst = os.path.join(SCRIPT_DIR, f"baked-tweeters-{r}.wav")
-        bake_driver_ir(tw_src, tw_dst, is_woofer=False)
+        tw_dst = os.path.join(repo_151, f"baked-tweeters-{r}.wav")
+        bake_driver_ir(tw_src, tw_dst, is_woofer=False, driver_gain=1.1)
 
         wf_name = f"woofers-{r}.wav"
-        wf_src = os.path.join(SCRIPT_DIR, wf_name)
+        wf_src = os.path.join(repo_151, wf_name)
         if not os.path.exists(wf_src) and os.path.exists(os.path.join(sys_dir, wf_name)):
             wf_src = os.path.join(sys_dir, wf_name)
+        if not os.path.exists(wf_src) and os.path.exists(os.path.join(SCRIPT_DIR, tw_name)):
+            wf_src = os.path.join(SCRIPT_DIR, wf_name)
 
-        wf_dst = os.path.join(SCRIPT_DIR, f"baked-woofers-{r}.wav")
-        bake_driver_ir(wf_src, wf_dst, is_woofer=True, hp_freq=180.0)
+        wf_dst = os.path.join(repo_151, f"baked-woofers-{r}.wav")
+        bake_driver_ir(wf_src, wf_dst, is_woofer=True, hp_freq=180.0, driver_gain=1.2)
 
     generate_simple_graph()
     print("=================================================================")

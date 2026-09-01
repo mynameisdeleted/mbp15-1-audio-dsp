@@ -96,10 +96,6 @@ if [ "$FORCE" -eq 0 ]; then
 fi
 
 # --- install ----------------------------------------------------------
-if [ "$SIMPLE" -eq 1 ]; then
-    echo "Installing baked FIR WAV files -> /usr/share/t2-linux-audio/15_1/"
-    sudo cp "$SCRIPT_DIR"/baked-*.wav /usr/share/t2-linux-audio/15_1/
-fi
 echo "Installing $MERGED -> $GRAPH_DST"
 sudo cp "$MERGED" "$GRAPH_DST"
 
