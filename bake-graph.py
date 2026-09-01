@@ -266,41 +266,57 @@ def bake_driver_ir(src_wav, dst_wav, is_woofer=False, hp_freq=180.0, driver_gain
         except Exception as e:
             print(f"System Voicing Equalizer note: {e}")
 
-    # 2.7 Apply User EQ Boosts ("user_eq.json" if present and enabled)
+    # 2.7 Apply Effective User EQ (user_eq.json override if present, else default user_eq from graph.json)
+    ueq = None
     user_eq_path = os.path.join(SCRIPT_DIR, "user_eq.json")
     if os.path.exists(user_eq_path):
         try:
             with open(user_eq_path, 'r') as f:
                 ueq = json.load(f)
-            if ueq.get("enabled", 1) == 1:
-                g_out = ueq.get("g_out", 1.0)
-                if g_out != 1.0:
-                    samples = [s * g_out for s in samples]
+        except Exception as e:
+            print(f"Error reading user_eq.json: {e}")
 
-                for i in range(8):
-                    f_key = f"f_{i}"
-                    g_key = f"g_{i}"
-                    q_key = f"q_{i}"
-                    ft_key = f"ft_{i}"
-                    if f_key in ueq and g_key in ueq:
-                        f0 = ueq[f_key]
-                        gain = ueq[g_key]
-                        q = ueq.get(q_key, 1.0)
-                        ft = ueq.get(ft_key, 1)
-                        gain_db = 20.0 * math.log10(max(gain, 0.001))
-                        
-                        if ft == 5: # Low Shelf
-                            b0, b1, b2, a0, a1, a2 = biquad_lowshelf(fs, f0, gain_db, q)
-                        elif ft == 3: # High Shelf
-                            b0, b1, b2, a0, a1, a2 = biquad_highshelf(fs, f0, gain_db, q)
-                        elif ft == 2: # High-Pass
-                            b0, b1, b2, a0, a1, a2 = biquad_highpass(fs, f0, q)
-                        elif ft == 4: # Low-Pass
-                            b0, b1, b2, a0, a1, a2 = biquad_lowpass(fs, f0, q)
-                        else: # Peaking EQ
-                            b0, b1, b2, a0, a1, a2 = biquad_peaking(fs, f0, gain_db, q)
+    if ueq is None and os.path.exists(graph_path):
+        try:
+            with open(graph_path, 'r') as f:
+                g = json.load(f)
+            for n in g.get("filter.graph", {}).get("nodes", []):
+                if n.get("name") == "user_eq":
+                    ueq = n.get("control", {})
+                    break
+        except Exception as e:
+            print(f"Error reading default user_eq from graph.json: {e}")
 
-                        samples = process_biquad(samples, b0, b1, b2, a0, a1, a2)
+    if ueq and ueq.get("enabled", 1) == 1:
+        try:
+            g_out = ueq.get("g_out", 1.0)
+            if g_out != 1.0:
+                samples = [s * g_out for s in samples]
+
+            for i in range(8):
+                f_key = f"f_{i}"
+                g_key = f"g_{i}"
+                q_key = f"q_{i}"
+                ft_key = f"ft_{i}"
+                if f_key in ueq and g_key in ueq:
+                    f0 = ueq[f_key]
+                    gain = ueq[g_key]
+                    q = ueq.get(q_key, 1.0)
+                    ft = ueq.get(ft_key, 1)
+                    gain_db = 20.0 * math.log10(max(gain, 0.001))
+                    
+                    if ft == 5: # Low Shelf
+                        b0, b1, b2, a0, a1, a2 = biquad_lowshelf(fs, f0, gain_db, q)
+                    elif ft == 3: # High Shelf
+                        b0, b1, b2, a0, a1, a2 = biquad_highshelf(fs, f0, gain_db, q)
+                    elif ft == 2: # High-Pass
+                        b0, b1, b2, a0, a1, a2 = biquad_highpass(fs, f0, q)
+                    elif ft == 4: # Low-Pass
+                        b0, b1, b2, a0, a1, a2 = biquad_lowpass(fs, f0, q)
+                    else: # Peaking EQ
+                        b0, b1, b2, a0, a1, a2 = biquad_peaking(fs, f0, gain_db, q)
+
+                    samples = process_biquad(samples, b0, b1, b2, a0, a1, a2)
         except Exception as e:
             print(f"User EQ processing note: {e}")
 

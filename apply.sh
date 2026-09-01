@@ -97,6 +97,19 @@ if [ "$FORCE" -eq 0 ]; then
     fi
 fi
 
+# --- preserve master volume --------------------------------------------
+SAVED_VOL=""
+IS_MUTED=0
+if have wpctl; then
+    VOL_OUT="$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null || true)"
+    if [ -n "$VOL_OUT" ]; then
+        SAVED_VOL="$(echo "$VOL_OUT" | awk '{print $2}')"
+        if echo "$VOL_OUT" | grep -qi "MUTED"; then
+            IS_MUTED=1
+        fi
+    fi
+fi
+
 # --- install ----------------------------------------------------------
 if [ "$SIMPLE" -eq 1 ]; then
     echo "Installing baked FIR files -> $(dirname "$GRAPH_DST")/"
@@ -109,8 +122,17 @@ sudo cp "$MERGED" "$GRAPH_DST"
 echo "Restarting WirePlumber"
 systemctl --user restart wireplumber
 
-# --- confirm --------------------------------------------------------
+# --- restore master volume ---------------------------------------------
 sleep 1
+if [ -n "$SAVED_VOL" ] && have wpctl; then
+    wpctl set-volume @DEFAULT_AUDIO_SINK@ "$SAVED_VOL" 2>/dev/null || true
+    if [ "$IS_MUTED" -eq 1 ]; then
+        wpctl set-mute @DEFAULT_AUDIO_SINK@ 1 2>/dev/null || true
+    fi
+    echo "ok: preserved master volume (${SAVED_VOL})"
+fi
+
+# --- confirm --------------------------------------------------------
 if have wpctl && wpctl status 2>/dev/null | grep -qi "DSP Speakers"; then
     echo "Done - 'MacBook Pro 15,1 DSP Speakers' sink is up."
 else
