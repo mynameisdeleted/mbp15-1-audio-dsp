@@ -31,6 +31,8 @@ if [ "$SIMPLE" -eq 1 ]; then
     echo "==> Baking static DSP stages into single-stage FIR files..."
     python3 "$SCRIPT_DIR/bake-graph.py" || die "bake-graph.py failed"
     GRAPH_SRC="$SCRIPT_DIR/graph_simple.json"
+    echo "==> Installing baked FIR files -> /usr/share/t2-linux-audio/15_1/"
+    sudo cp "$SCRIPT_DIR/15_1/baked-"*.wav "/usr/share/t2-linux-audio/15_1/" || die "Failed to copy baked FIR files"
 fi
 
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -58,14 +60,14 @@ elif [ -f "$OVERRIDE" ]; then
     have jq || die "$OVERRIDE exists but jq is not installed"
     jq -e . "$OVERRIDE" >/dev/null 2>&1 || die "$OVERRIDE is not valid JSON"
     jq -e 'any(.["filter.graph"].nodes[]; .name == "user_eq")' "$GRAPH_SRC" >/dev/null \
-        || die "graph.json has no node named user_eq to override"
+        || die "$GRAPH_SRC has no node named user_eq to override"
     jq --slurpfile ov "$OVERRIDE" \
        '(.["filter.graph"].nodes[] | select(.name == "user_eq") | .control) = $ov[0]' \
        "$GRAPH_SRC" > "$MERGED" || die "jq merge failed"
     echo "ok: merged user_eq.json -> $MERGED"
 else
     cp "$GRAPH_SRC" "$MERGED"
-    echo "ok: no user_eq.json - graph.json as-is -> $MERGED"
+    echo "ok: no user_eq.json - graph as-is -> $MERGED"
 fi
 
 json_ok "$MERGED"; rc=$?
@@ -96,6 +98,11 @@ if [ "$FORCE" -eq 0 ]; then
 fi
 
 # --- install ----------------------------------------------------------
+if [ "$SIMPLE" -eq 1 ]; then
+    echo "Installing baked FIR files -> $(dirname "$GRAPH_DST")/"
+    sudo cp "$SCRIPT_DIR/15_1/baked-"*.wav "$(dirname "$GRAPH_DST")/"
+fi
+
 echo "Installing $MERGED -> $GRAPH_DST"
 sudo cp "$MERGED" "$GRAPH_DST"
 

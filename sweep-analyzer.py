@@ -67,6 +67,64 @@ def biquad_highpass(fs, f0, q=0.7071):
     a2 = 1.0 - alpha
     return b0/a0, b1/a0, b2/a0, 1.0, a1/a0, a2/a0
 
+def biquad_lowpass(fs, f0, q=0.7071):
+    w0 = 2.0 * math.pi * f0 / fs
+    alpha = math.sin(w0) / (2.0 * q)
+    cos_w0 = math.cos(w0)
+    b0 = (1.0 - cos_w0) / 2.0
+    b1 = 1.0 - cos_w0
+    b2 = (1.0 - cos_w0) / 2.0
+    a0 = 1.0 + alpha
+    a1 = -2.0 * cos_w0
+    a2 = 1.0 - alpha
+    return b0/a0, b1/a0, b2/a0, 1.0, a1/a0, a2/a0
+
+def biquad_peaking(fs, f0, gain_db, q):
+    if gain_db == 0.0 or gain_db == 1.0:
+        return 1.0, 0.0, 0.0, 1.0, 0.0, 0.0
+    A = 10.0 ** (gain_db / 40.0)
+    w0 = 2.0 * math.pi * f0 / fs
+    alpha = math.sin(w0) / (2.0 * max(q, 0.01))
+    b0 = 1.0 + alpha * A
+    b1 = -2.0 * math.cos(w0)
+    b2 = 1.0 - alpha * A
+    a0 = 1.0 + alpha / A
+    a1 = -2.0 * math.cos(w0)
+    a2 = 1.0 - alpha / A
+    return b0/a0, b1/a0, b2/a0, 1.0, a1/a0, a2/a0
+
+def biquad_lowshelf(fs, f0, gain_db, q=0.7071):
+    if gain_db == 0.0:
+        return 1.0, 0.0, 0.0, 1.0, 0.0, 0.0
+    A = 10.0 ** (gain_db / 40.0)
+    w0 = 2.0 * math.pi * f0 / fs
+    alpha = math.sin(w0) / (2.0 * q)
+    cos_w0 = math.cos(w0)
+    beta = math.sqrt(A) / q
+    b0 = A * ((A + 1.0) - (A - 1.0) * cos_w0 + beta * math.sin(w0))
+    b1 = 2.0 * A * ((A - 1.0) - (A + 1.0) * cos_w0)
+    b2 = A * ((A + 1.0) - (A - 1.0) * cos_w0 - beta * math.sin(w0))
+    a0 = (A + 1.0) + (A - 1.0) * cos_w0 + beta * math.sin(w0)
+    a1 = -2.0 * ((A - 1.0) + (A + 1.0) * cos_w0)
+    a2 = (A + 1.0) + (A - 1.0) * cos_w0 - beta * math.sin(w0)
+    return b0/a0, b1/a0, b2/a0, 1.0, a1/a0, a2/a0
+
+def biquad_highshelf(fs, f0, gain_db, q=0.7071):
+    if gain_db == 0.0:
+        return 1.0, 0.0, 0.0, 1.0, 0.0, 0.0
+    A = 10.0 ** (gain_db / 40.0)
+    w0 = 2.0 * math.pi * f0 / fs
+    alpha = math.sin(w0) / (2.0 * q)
+    cos_w0 = math.cos(w0)
+    beta = math.sqrt(A) / q
+    b0 = A * ((A + 1.0) + (A - 1.0) * cos_w0 + beta * math.sin(w0))
+    b1 = -2.0 * A * ((A - 1.0) + (A + 1.0) * cos_w0)
+    b2 = A * ((A + 1.0) + (A - 1.0) * cos_w0 - beta * math.sin(w0))
+    a0 = (A + 1.0) - (A - 1.0) * cos_w0 + beta * math.sin(w0)
+    a1 = 2.0 * ((A - 1.0) - (A + 1.0) * cos_w0)
+    a2 = (A + 1.0) - (A - 1.0) * cos_w0 - beta * math.sin(w0)
+    return b0/a0, b1/a0, b2/a0, 1.0, a1/a0, a2/a0
+
 def process_biquad(samples, b0, b1, b2, a0, a1, a2):
     out = [0.0] * len(samples)
     x1 = x2 = y1 = y2 = 0.0
@@ -104,10 +162,52 @@ def main():
     # Load baseline woofer IR
     orig_ir, fs = read_wav_floats(orig_path)
     
-    # Path A: Cascaded Filter Chain (Baseline IR + 180 Hz Crossover High-Pass Biquads)
+    # Path A: Cascaded Filter Chain (Baseline IR + System Voicing EQ + User EQ + 180 Hz Crossover Biquads)
     b0, b1, b2, a0, a1, a2 = biquad_highpass(fs, 180.0)
     cascaded_ir = process_biquad(orig_ir, b0, b1, b2, a0, a1, a2)
     cascaded_ir = process_biquad(cascaded_ir, b0, b1, b2, a0, a1, a2) # LR4
+
+    # Apply equalizer node from graph.json to Path A
+    graph_path = os.path.join(SCRIPT_DIR, "graph.json")
+    if os.path.exists(graph_path):
+        with open(graph_path, 'r') as f:
+            graph = json.load(f)
+        for node in graph.get("filter.graph", {}).get("nodes", []):
+            if node.get("name") == "equalizer":
+                ctrl = node.get("control", {})
+                if ctrl.get("enabled", 1) == 1:
+                    g_in = ctrl.get("g_in", 1.0)
+                    g_out = ctrl.get("g_out", 1.0)
+                    if g_in != 1.0: cascaded_ir = [s * g_in for s in cascaded_ir]
+                    if g_out != 1.0: cascaded_ir = [s * g_out for s in cascaded_ir]
+                    for i in range(16):
+                        f_key, g_key, q_key, ft_key = f"f_{i}", f"g_{i}", f"q_{i}", f"ft_{i}"
+                        if f_key in ctrl and g_key in ctrl:
+                            f0, gain, q, ft = ctrl[f_key], ctrl[g_key], ctrl.get(q_key, 1.41), ctrl.get(ft_key, 1)
+                            gain_db = 20.0 * math.log10(max(gain, 0.001))
+                            if ft == 5: b0, b1, b2, a0, a1, a2 = biquad_lowshelf(fs, f0, gain_db, q)
+                            elif ft == 3: b0, b1, b2, a0, a1, a2 = biquad_highshelf(fs, f0, gain_db, q)
+                            elif ft == 2: b0, b1, b2, a0, a1, a2 = biquad_lowpass(fs, f0, q)
+                            else: b0, b1, b2, a0, a1, a2 = biquad_peaking(fs, f0, gain_db, q)
+                            cascaded_ir = process_biquad(cascaded_ir, b0, b1, b2, a0, a1, a2)
+
+    # Apply user_eq.json to Path A
+    user_eq_path = os.path.join(SCRIPT_DIR, "user_eq.json")
+    if os.path.exists(user_eq_path):
+        with open(user_eq_path, 'r') as f:
+            ueq = json.load(f)
+        if ueq.get("enabled", 1) == 1:
+            g_out = ueq.get("g_out", 1.0)
+            if g_out != 1.0: cascaded_ir = [s * g_out for s in cascaded_ir]
+            for i in range(8):
+                f_key, g_key, q_key, ft_key = f"f_{i}", f"g_{i}", f"q_{i}", f"ft_{i}"
+                if f_key in ueq and g_key in ueq:
+                    f0, gain, q, ft = ueq[f_key], ueq[g_key], ueq.get(q_key, 1.0), ueq.get(ft_key, 1)
+                    gain_db = 20.0 * math.log10(max(gain, 0.001))
+                    if ft == 5: b0, b1, b2, a0, a1, a2 = biquad_lowshelf(fs, f0, gain_db, q)
+                    elif ft == 3: b0, b1, b2, a0, a1, a2 = biquad_highshelf(fs, f0, gain_db, q)
+                    else: b0, b1, b2, a0, a1, a2 = biquad_peaking(fs, f0, gain_db, q)
+                    cascaded_ir = process_biquad(cascaded_ir, b0, b1, b2, a0, a1, a2)
 
     # Path B: Single-Stage Baked FIR
     baked_ir, _ = read_wav_floats(baked_path)

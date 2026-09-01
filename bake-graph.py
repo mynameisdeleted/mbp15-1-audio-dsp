@@ -46,6 +46,18 @@ def biquad_highpass(fs, f0, q=0.7071):
     a2 = 1.0 - alpha
     return b0/a0, b1/a0, b2/a0, 1.0, a1/a0, a2/a0
 
+def biquad_lowpass(fs, f0, q=0.7071):
+    w0 = 2.0 * math.pi * f0 / fs
+    alpha = math.sin(w0) / (2.0 * q)
+    cos_w0 = math.cos(w0)
+    b0 = (1.0 - cos_w0) / 2.0
+    b1 = 1.0 - cos_w0
+    b2 = (1.0 - cos_w0) / 2.0
+    a0 = 1.0 + alpha
+    a1 = -2.0 * cos_w0
+    a2 = 1.0 - alpha
+    return b0/a0, b1/a0, b2/a0, 1.0, a1/a0, a2/a0
+
 def biquad_lowshelf(fs, f0, gain_db, q=0.7071):
     if gain_db == 0.0:
         return 1.0, 0.0, 0.0, 1.0, 0.0, 0.0
@@ -61,6 +73,23 @@ def biquad_lowshelf(fs, f0, gain_db, q=0.7071):
     a0 = (A + 1.0) + (A - 1.0) * cos_w0 + beta * math.sin(w0)
     a1 = -2.0 * ((A - 1.0) + (A + 1.0) * cos_w0)
     a2 = (A + 1.0) + (A - 1.0) * cos_w0 - beta * math.sin(w0)
+    return b0/a0, b1/a0, b2/a0, 1.0, a1/a0, a2/a0
+
+def biquad_highshelf(fs, f0, gain_db, q=0.7071):
+    if gain_db == 0.0:
+        return 1.0, 0.0, 0.0, 1.0, 0.0, 0.0
+    A = 10.0 ** (gain_db / 40.0)
+    w0 = 2.0 * math.pi * f0 / fs
+    alpha = math.sin(w0) / (2.0 * q)
+    cos_w0 = math.cos(w0)
+    beta = math.sqrt(A) / q
+    
+    b0 = A * ((A + 1.0) + (A - 1.0) * cos_w0 + beta * math.sin(w0))
+    b1 = -2.0 * A * ((A - 1.0) + (A + 1.0) * cos_w0)
+    b2 = A * ((A + 1.0) + (A - 1.0) * cos_w0 - beta * math.sin(w0))
+    a0 = (A + 1.0) - (A - 1.0) * cos_w0 + beta * math.sin(w0)
+    a1 = 2.0 * ((A - 1.0) - (A + 1.0) * cos_w0)
+    a2 = (A + 1.0) - (A - 1.0) * cos_w0 - beta * math.sin(w0)
     return b0/a0, b1/a0, b2/a0, 1.0, a1/a0, a2/a0
 
 def process_biquad(samples, b0, b1, b2, a0, a1, a2):
@@ -161,7 +190,7 @@ def optimize_fir_latency_and_tail(samples, fs=48000, is_woofer=False):
         cropped[i] *= fade
 
     # Energy compensation: Scale post-lead tail energy to preserve 100% total acoustic energy
-    cropped_energy = sum(s*s for s in cropped)
+    cropped_energy = sum(s*s for s in samples[start_idx:])
     if cropped_energy > 0 and total_energy > 0:
         boost_factor = math.sqrt(total_energy / cropped_energy)
         for i in range(lead_len, len(cropped)):
@@ -201,84 +230,185 @@ def bake_driver_ir(src_wav, dst_wav, is_woofer=False, hp_freq=180.0, driver_gain
         samples = process_biquad(samples, b0, b1, b2, a0, a1, a2)
         samples = process_biquad(samples, b0, b1, b2, a0, a1, a2) # LR4 (2-stage)
 
-    # 3. Apply User EQ Boosts (if user_eq.json exists)
+    # 2.5 Apply Static System Voicing EQ ("equalizer" node from graph.json: +8dB @ 31.5Hz, +7dB @ 50Hz, +6dB @ 80Hz)
+    graph_path = os.path.join(SCRIPT_DIR, "graph.json")
+    if os.path.exists(graph_path):
+        try:
+            with open(graph_path, 'r') as f:
+                graph = json.load(f)
+            nodes = graph.get("filter.graph", {}).get("nodes", [])
+            for node in nodes:
+                if node.get("name") == "equalizer":
+                    ctrl = node.get("control", {})
+                    if ctrl.get("enabled", 1) == 1:
+                        for i in range(16):
+                            f_key = f"f_{i}"
+                            g_key = f"g_{i}"
+                            q_key = f"q_{i}"
+                            ft_key = f"ft_{i}"
+                            if f_key in ctrl and g_key in ctrl:
+                                f0 = ctrl[f_key]
+                                gain = ctrl[g_key]
+                                q = ctrl.get(q_key, 1.41)
+                                ft = ctrl.get(ft_key, 1)
+                                gain_db = 20.0 * math.log10(max(gain, 0.001))
+                                if ft == 5:
+                                    b0, b1, b2, a0, a1, a2 = biquad_lowshelf(fs, f0, gain_db, q)
+                                elif ft == 3:
+                                    b0, b1, b2, a0, a1, a2 = biquad_highshelf(fs, f0, gain_db, q)
+                                elif ft == 2: # High-Pass Filter (Low-Cut)
+                                    b0, b1, b2, a0, a1, a2 = biquad_highpass(fs, f0, q)
+                                elif ft == 4: # Low-Pass Filter (High-Cut)
+                                    b0, b1, b2, a0, a1, a2 = biquad_lowpass(fs, f0, q)
+                                else:
+                                    b0, b1, b2, a0, a1, a2 = biquad_peaking(fs, f0, gain_db, q)
+                                samples = process_biquad(samples, b0, b1, b2, a0, a1, a2)
+        except Exception as e:
+            print(f"System Voicing Equalizer note: {e}")
+
+    # 2.7 Apply User EQ Boosts ("user_eq.json" if present and enabled)
     user_eq_path = os.path.join(SCRIPT_DIR, "user_eq.json")
     if os.path.exists(user_eq_path):
         try:
             with open(user_eq_path, 'r') as f:
                 ueq = json.load(f)
             if ueq.get("enabled", 1) == 1:
+                g_out = ueq.get("g_out", 1.0)
+                if g_out != 1.0:
+                    samples = [s * g_out for s in samples]
+
                 for i in range(8):
                     f_key = f"f_{i}"
                     g_key = f"g_{i}"
                     q_key = f"q_{i}"
+                    ft_key = f"ft_{i}"
                     if f_key in ueq and g_key in ueq:
                         f0 = ueq[f_key]
                         gain = ueq[g_key]
                         q = ueq.get(q_key, 1.0)
+                        ft = ueq.get(ft_key, 1)
                         gain_db = 20.0 * math.log10(max(gain, 0.001))
-                        b0, b1, b2, a0, a1, a2 = biquad_peaking(fs, f0, gain_db, q)
+                        
+                        if ft == 5: # Low Shelf
+                            b0, b1, b2, a0, a1, a2 = biquad_lowshelf(fs, f0, gain_db, q)
+                        elif ft == 3: # High Shelf
+                            b0, b1, b2, a0, a1, a2 = biquad_highshelf(fs, f0, gain_db, q)
+                        elif ft == 2: # High-Pass
+                            b0, b1, b2, a0, a1, a2 = biquad_highpass(fs, f0, q)
+                        elif ft == 4: # Low-Pass
+                            b0, b1, b2, a0, a1, a2 = biquad_lowpass(fs, f0, q)
+                        else: # Peaking EQ
+                            b0, b1, b2, a0, a1, a2 = biquad_peaking(fs, f0, gain_db, q)
+
                         samples = process_biquad(samples, b0, b1, b2, a0, a1, a2)
         except Exception as e:
             print(f"User EQ processing note: {e}")
 
-    # 4. Optimize Latency (5ms Lead) + Extend Woofer/Tweeter Lopsided Tail Resolution
+    # 3. Optimize Latency (5ms Lead) + Extend Woofer/Tweeter Lopsided Tail Resolution
     samples = optimize_fir_latency_and_tail(samples, fs=fs, is_woofer=is_woofer)
 
     write_wav_floats(dst_wav, samples, fs)
     print(f"==> Baked {os.path.basename(dst_wav)} ({fs} Hz, {len(samples)} taps, gain={driver_gain}x)")
     return True
 
-def generate_simple_graph():
+def generate_simple_graph_and_bake():
     graph_path = os.path.join(SCRIPT_DIR, "graph.json")
     simple_graph_path = os.path.join(SCRIPT_DIR, "graph_simple.json")
     
     if not os.path.exists(graph_path):
-        print("graph.json not found.")
-        return
+        print(f"Error: {graph_path} not found.")
+        sys.exit(1)
 
     with open(graph_path, 'r') as f:
         graph = json.load(f)
 
-    # Update description
-    graph["node.description"] = "MacBook Pro 15,1 DSP Speakers (Single-Stage Baked FIR)"
+    repo_151 = os.path.join(SCRIPT_DIR, "15_1")
+    sys_dir = "/usr/share/t2-linux-audio/15_1"
+    os.makedirs(repo_151, exist_ok=True)
 
-    # Replace Convolver filenames in nodes to point to baked WAVs
     nodes = graph.get("filter.graph", {}).get("nodes", [])
+    
+    # 1. Discover all convolver nodes and their input WAV files dynamically from graph.json
+    convolver_tasks = {} # maps src_filename -> {is_woofer, gain, sys_dst_path, repo_dst_path}
+
+    for node in nodes:
+        if node.get("label") == "convolver" or "conv" in node.get("name", ""):
+            name = node.get("name", "")
+            config = node.get("config", {})
+            gain = config.get("gain", 1.0)
+            filenames = config.get("filename", [])
+            is_woofer = ("woofer" in name.lower() or "convlw" in name.lower() or "convrw" in name.lower())
+
+            for sys_path in filenames:
+                basename = os.path.basename(sys_path)
+                if not basename in convolver_tasks:
+                    if "woofer" in basename.lower():
+                        is_woofer = True
+                    baked_basename = "baked-" + basename
+                    repo_dst_path = os.path.join(repo_151, baked_basename)
+                    sys_dst_path = os.path.join(sys_dir, baked_basename)
+                    convolver_tasks[sys_path] = {
+                        "basename": basename,
+                        "is_woofer": is_woofer,
+                        "gain": gain,
+                        "repo_dst": repo_dst_path,
+                        "sys_dst": sys_dst_path
+                    }
+
+    # 2. Bake FIR files dynamically for all discovered WAV targets
+    for sys_path, task in convolver_tasks.items():
+        basename = task["basename"]
+        src_path = os.path.join(repo_151, basename)
+        if not os.path.exists(src_path) and os.path.exists(sys_path):
+            src_path = sys_path
+        if not os.path.exists(src_path) and os.path.exists(os.path.join(SCRIPT_DIR, basename)):
+            src_path = os.path.join(SCRIPT_DIR, basename)
+
+        bake_driver_ir(
+            src_wav=src_path,
+            dst_wav=task["repo_dst"],
+            is_woofer=task["is_woofer"],
+            hp_freq=180.0,
+            driver_gain=task["gain"]
+        )
+
+    # 3. Build graph_simple.json dynamically from graph.json (omitting user_eq, equalizer, whp*)
+    graph["node.description"] = "MacBook Pro 15,1 DSP Speakers (Single-Stage Baked FIR)"
     new_nodes = []
 
     for node in nodes:
         name = node.get("name", "")
-        # Omit static biquad EQ nodes that are now baked into FIR
-        if name in ["user_eq", "equalizer", "whpL1", "whpL2", "whpR1", "whpR2"]:
+        # Omit user_eq, static system voicing equalizer, redundant master limiter & crossover biquad nodes
+        if name in ["user_eq", "equalizer", "limiter", "whpL1", "whpL2", "whpR1", "whpR2"]:
             continue
-        
-        repo_151 = os.path.join(SCRIPT_DIR, "15_1")
-        if name in ["convLT", "convRT"]:
+
+        if node.get("label") == "convolver" or "conv" in name:
+            orig_filenames = node.get("config", {}).get("filename", [])
             node["config"]["filename"] = [
-                os.path.join(repo_151, "baked-tweeters-44k.wav"),
-                os.path.join(repo_151, "baked-tweeters-48k.wav"),
-                os.path.join(repo_151, "baked-tweeters-96k.wav")
+                convolver_tasks[p]["sys_dst"] if p in convolver_tasks else os.path.join(sys_dir, "baked-" + os.path.basename(p))
+                for p in orig_filenames
             ]
-        elif name in ["convLW", "convRW"]:
-            node["config"]["filename"] = [
-                os.path.join(repo_151, "baked-woofers-44k.wav"),
-                os.path.join(repo_151, "baked-woofers-48k.wav"),
-                os.path.join(repo_151, "baked-woofers-96k.wav")
-            ]
+
         new_nodes.append(node)
 
-    # Re-wire links: filter out references to omitted nodes (user_eq, equalizer, whp*)
+    # Re-wire links: filter out user_eq, equalizer, limiter & whp*
     links = graph.get("filter.graph", {}).get("links", [])
     new_links = []
     for link in links:
         out_node = link.get("output", "")
         in_node = link.get("input", "")
-        if "whp" in out_node or "whp" in in_node or "equalizer" in out_node or "user_eq" in out_node:
+        if ("whp" in out_node or "whp" in in_node or 
+            "equalizer" in out_node or "equalizer" in in_node or 
+            "user_eq" in out_node or "user_eq" in in_node or
+            "limiter:" in out_node or "limiter:" in in_node):
             continue
         new_links.append(link)
 
-    # Set graph inputs to virtualbass (first remaining processing node)
+    # Wire multiband_compressor directly to ell and elr (bypassing redundant master limiter)
+    new_links.append({"output": "multiband_compressor:out_l", "input": "ell:in"})
+    new_links.append({"output": "multiband_compressor:out_r", "input": "elr:in"})
+
+    # Set graph inputs directly to virtualbass (first active DSP processing node)
     graph["filter.graph"]["inputs"] = [
         "virtualbass:in_l",
         "virtualbass:in_r"
@@ -296,34 +426,7 @@ def main():
     print("=================================================================")
     print("  SINGLE-STAGE FIR CONVOLVER BAKER & GRAPH SIMPLIFIER")
     print("=================================================================")
-    
-    repo_151 = os.path.join(SCRIPT_DIR, "15_1")
-    sys_dir = "/usr/share/t2-linux-audio/15_1"
-    os.makedirs(repo_151, exist_ok=True)
-    rates = ["44k", "48k", "96k"]
-
-    for r in rates:
-        tw_name = f"tweeters-{r}.wav"
-        tw_src = os.path.join(repo_151, tw_name)
-        if not os.path.exists(tw_src) and os.path.exists(os.path.join(sys_dir, tw_name)):
-            tw_src = os.path.join(sys_dir, tw_name)
-        if not os.path.exists(tw_src) and os.path.exists(os.path.join(SCRIPT_DIR, tw_name)):
-            tw_src = os.path.join(SCRIPT_DIR, tw_name)
-
-        tw_dst = os.path.join(repo_151, f"baked-tweeters-{r}.wav")
-        bake_driver_ir(tw_src, tw_dst, is_woofer=False, driver_gain=1.1)
-
-        wf_name = f"woofers-{r}.wav"
-        wf_src = os.path.join(repo_151, wf_name)
-        if not os.path.exists(wf_src) and os.path.exists(os.path.join(sys_dir, wf_name)):
-            wf_src = os.path.join(sys_dir, wf_name)
-        if not os.path.exists(wf_src) and os.path.exists(os.path.join(SCRIPT_DIR, tw_name)):
-            wf_src = os.path.join(SCRIPT_DIR, wf_name)
-
-        wf_dst = os.path.join(repo_151, f"baked-woofers-{r}.wav")
-        bake_driver_ir(wf_src, wf_dst, is_woofer=True, hp_freq=180.0, driver_gain=1.2)
-
-    generate_simple_graph()
+    generate_simple_graph_and_bake()
     print("=================================================================")
     print("Done! Baked FIR files & graph_simple.json created.")
 
