@@ -176,6 +176,7 @@ if [ -n "$SAVED_VOL" ] && have wpctl; then
 
     DSP_ID="$(wpctl status 2>/dev/null | grep -i "DSP Speakers" | grep -oE '[0-9]+\.' | head -n1 | tr -d '.')"
     if [ -n "$DSP_ID" ]; then
+        wpctl set-default "$DSP_ID" 2>/dev/null || true
         wpctl set-mute "$DSP_ID" 0 2>/dev/null || true
         wpctl set-volume "$DSP_ID" "$SAVED_VOL" 2>/dev/null || true
     fi

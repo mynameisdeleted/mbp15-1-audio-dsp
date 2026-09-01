@@ -236,7 +236,20 @@
             "wlim:out_2",
             "tlim:out_1",
             "tlim:out_2"
-        ],
+        ]
+    },
+    "capture.props": {
+        "node.name": "audio_effect.t2-151-speakers",
+        "media.class": "Audio/Sink",
+        "audio.channels": "2",
+        "audio.position": ["FL", "FR"],
+        "device.api": "dsp",
+        "audio.allowed-rates": [48000, 44100],
+        "node.virtual": "false",
+        "priority.session": 2500,
+        "priority.driver": 2500,
+        "state.default-volume": 1.0,
+        "device.icon-name": "audio-speakers",
         "capture.volumes": [
             {
                 "control": "ell:volume",
@@ -251,18 +264,6 @@
                 "scale": "cubic"
             }
         ]
-    },
-    "capture.props": {
-        "node.name": "audio_effect.t2-151-speakers",
-        "media.class": "Audio/Sink",
-        "audio.channels": "2",
-        "audio.position": ["FL", "FR"],
-        "device.api": "dsp",
-        "audio.allowed-rates": [48000, 44100],
-        "node.virtual": "false",
-        "priority.session": 1500,
-        "state.default-volume": 1.0,
-        "device.icon-name": "audio-speakers"
     },
     "playback.props": {
         "node.name": "effect_output.t2-151-speakers",

@@ -412,8 +412,13 @@ def generate_simple_graph_and_bake(profile_dir=None):
         "user_eq:in_r"
     ]
 
-    # Consolidated volume tracking for stereo loudness node
-    graph["filter.graph"]["capture.volumes"] = [
+    # Consolidated volume tracking for stereo loudness node inside capture.props
+    if "capture.props" not in graph:
+        graph["capture.props"] = {}
+    
+    graph["capture.props"]["priority.session"] = 2500
+    graph["capture.props"]["priority.driver"] = 2500
+    graph["capture.props"]["capture.volumes"] = [
         {
             "control": "loudness:volume",
             "min": -65.0,
