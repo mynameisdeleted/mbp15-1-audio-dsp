@@ -3,3 +3,12 @@
 
 # Local user_eq override consumed by apply.sh (copy from user_eq.example.json)
 /user_eq.json
+
+# Generated baked single-stage FIR files & simple graph
+/15_1/baked-*.wav
+/baked-*.wav
+/graph_simple.json
+
+# Python bytecode cache
+*.pyc
+__pycache__/
