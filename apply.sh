@@ -19,12 +19,13 @@ MERGED="$HOME/.audiograph.json"
 GRAPH_DST="/usr/share/t2-linux-audio/15_1/graph.json"
 
 FORCE=0
-SIMPLE=0
+SIMPLE=1
 HOT=0
 for arg in "${@:-}"; do
     case "$arg" in
         -f|--force|--no-check) FORCE=1 ;;
         -b|--bake|--simple) SIMPLE=1 ;;
+        --full|--unbaked) SIMPLE=0 ;;
         -h|--hot|--soft) HOT=1 ;;
     esac
 done
@@ -41,7 +42,7 @@ if [ "$SIMPLE" -eq 1 ]; then
     echo "==> Baking static DSP stages into single-stage FIR files..."
     python3 "$SCRIPT_DIR/bake-graph.py" || die "bake-graph.py failed"
     GRAPH_SRC="$SCRIPT_DIR/graph_simple.json"
-    echo "==> Installing baked FIR files -> /usr/share/t2-linux-audio/15_1/"
+    echo "==> Installing baked FIR files -> /usr/share/t2-linux-audio/15_1/ (requires sudo)"
     if [ -d "$PROFILE_DIR" ] && compgen -G "$PROFILE_DIR/baked-*.wav" >/dev/null; then
         sudo cp "$PROFILE_DIR/baked-"*.wav "/usr/share/t2-linux-audio/15_1/" || die "Failed to copy baked FIR files"
     else
@@ -133,7 +134,7 @@ if [ "$SIMPLE" -eq 1 ]; then
     done
 fi
 
-echo "Installing $MERGED -> $GRAPH_DST"
+echo "Installing $MERGED -> $GRAPH_DST (requires sudo)"
 sudo cp "$MERGED" "$GRAPH_DST.tmp"
 sudo mv -f "$GRAPH_DST.tmp" "$GRAPH_DST"
 
