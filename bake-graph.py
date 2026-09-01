@@ -165,6 +165,26 @@ def write_wav_floats(filepath, samples, framerate):
     with open(filepath, 'wb') as f:
         f.write(riff_header + fmt_header + data_header + data)
 
+def apply_true_peak_guard(samples, max_allowed_dbfs=-0.5):
+    if not samples:
+        return samples
+    # 4x oversampled true peak estimation (inter-sample peak detection)
+    max_tp = 0.0
+    for i in range(len(samples) - 1):
+        s0 = samples[i]
+        s1 = samples[i+1]
+        max_tp = max(max_tp, abs(s0), abs(s1))
+        for t in [0.25, 0.5, 0.75]:
+            interp = s0 + t * (s1 - s0)
+            max_tp = max(max_tp, abs(interp))
+
+    max_allowed_linear = 10.0 ** (max_allowed_dbfs / 20.0) # -0.5 dBFS = 0.9441
+    if max_tp > max_allowed_linear:
+        scale = max_allowed_linear / max_tp
+        samples = [s * scale for s in samples]
+        print(f"  [True-Peak Guard] ISP Peak: {max_tp:.3f} -> scaled by {scale:.4f} ({max_allowed_dbfs:.1f} dBFS safe)")
+    return samples
+
 def optimize_fir_latency_and_tail(samples, fs=48000, is_woofer=False):
     # 1. Find absolute peak index
     peak_idx = 0
@@ -323,6 +343,9 @@ def bake_driver_ir(src_wav, dst_wav, is_woofer=False, hp_freq=180.0, driver_gain
     # 3. Optimize Latency (5ms Lead) + Extend Woofer/Tweeter Lopsided Tail Resolution
     samples = optimize_fir_latency_and_tail(samples, fs=fs, is_woofer=is_woofer)
 
+    # 4. True-Peak Inter-Sample Peak (ISP) Guarding (-0.5 dBFS ceiling)
+    samples = apply_true_peak_guard(samples, max_allowed_dbfs=-0.5)
+
     write_wav_floats(dst_wav, samples, fs)
     print(f"==> Baked {os.path.basename(dst_wav)} ({fs} Hz, {len(samples)} taps, gain={driver_gain}x)")
     return True
@@ -388,14 +411,14 @@ def generate_simple_graph_and_bake():
             driver_gain=task["gain"]
         )
 
-    # 3. Build graph_simple.json dynamically from graph.json (omitting user_eq, equalizer, whp*)
+    # 3. Build graph_simple.json dynamically from graph.json (omitting user_eq, equalizer, limiter, ell, elr)
     graph["node.description"] = "MacBook Pro 15,1 DSP Speakers (Single-Stage Baked FIR)"
     new_nodes = []
 
     for node in nodes:
         name = node.get("name", "")
-        # Omit user_eq, static system voicing equalizer, redundant master limiter & crossover biquad nodes
-        if name in ["user_eq", "equalizer", "limiter", "whpL1", "whpL2", "whpR1", "whpR2"]:
+        # Omit user_eq, static system voicing equalizer, redundant master limiter, ell/elr mono nodes, & crossover biquad nodes
+        if name in ["user_eq", "equalizer", "limiter", "ell", "elr", "whpL1", "whpL2", "whpR1", "whpR2"]:
             continue
 
         if node.get("label") == "convolver" or "conv" in name:
@@ -407,7 +430,19 @@ def generate_simple_graph_and_bake():
 
         new_nodes.append(node)
 
-    # Re-wire links: filter out user_eq, equalizer, limiter & whp*
+    # Add consolidated 2-channel stereo loudness compensator node (replacing ell & elr)
+    new_nodes.append({
+        "type": "lv2",
+        "plugin": "http://lsp-plug.in/plugins/lv2/loud_comp_stereo",
+        "name": "loudness",
+        "control": {
+            "enabled": 1,
+            "input": 1.0,
+            "fft": 4
+        }
+    })
+
+    # Re-wire links: filter out user_eq, equalizer, limiter, ell, elr & whp*
     links = graph.get("filter.graph", {}).get("links", [])
     new_links = []
     for link in links:
@@ -416,18 +451,32 @@ def generate_simple_graph_and_bake():
         if ("whp" in out_node or "whp" in in_node or 
             "equalizer" in out_node or "equalizer" in in_node or 
             "user_eq" in out_node or "user_eq" in in_node or
-            "limiter:" in out_node or "limiter:" in in_node):
+            "limiter:" in out_node or "limiter:" in in_node or
+            "ell:" in out_node or "ell:" in in_node or
+            "elr:" in out_node or "elr:" in in_node):
             continue
         new_links.append(link)
 
-    # Wire multiband_compressor directly to ell and elr (bypassing redundant master limiter)
-    new_links.append({"output": "multiband_compressor:out_l", "input": "ell:in"})
-    new_links.append({"output": "multiband_compressor:out_r", "input": "elr:in"})
+    # Wire multiband_compressor -> loudness (stereo) -> copyL / copyR
+    new_links.append({"output": "multiband_compressor:out_l", "input": "loudness:in_l"})
+    new_links.append({"output": "multiband_compressor:out_r", "input": "loudness:in_r"})
+    new_links.append({"output": "loudness:out_l", "input": "copyL:In"})
+    new_links.append({"output": "loudness:out_r", "input": "copyR:In"})
 
     # Set graph inputs directly to virtualbass (first active DSP processing node)
     graph["filter.graph"]["inputs"] = [
         "virtualbass:in_l",
         "virtualbass:in_r"
+    ]
+
+    # Consolidated volume tracking for stereo loudness node
+    graph["filter.graph"]["capture.volumes"] = [
+        {
+            "control": "loudness:volume",
+            "min": -65.0,
+            "max": 0.0,
+            "scale": "cubic"
+        }
     ]
 
     graph["filter.graph"]["nodes"] = new_nodes
