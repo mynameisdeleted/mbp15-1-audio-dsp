@@ -1,6 +1,9 @@
-# Next-Gen Audio DSP Architecture: Compressed-Chain Engine & Multi-Laptop Ecosystem
+# Next-Gen Audio DSP Architecture: Compressed-Chain "Digital Surround" (Active Crossover) Engine & Multi-Laptop Ecosystem
 
 This document provides a comprehensive technical blueprint of the **Next-Gen Audio DSP Engine** implemented in `mbp15-1-audio-dsp`. The system delivers studio-grade, zero-latency audio performance for Linux laptops, outperforming factory OEM macOS/Windows DSP stacks while remaining fully open-source and hardware-portable.
+
+> ### 📻 "Digital Surround" Marketing vs. Active Digital Crossovers
+> In consumer laptop marketing, multi-speaker setups are frequently advertised under buzzwords like **"Dolby Atmos"**, **"3D Digital Surround"**, or **"Spatial Audio"** to imply multi-channel cinema sound. In real-world acoustic engineering, this feature is an **Active Multi-Band Digital Crossover Engine**. Rather than blasting a single flat stereo stream through identical tiny speakers, our DSP active crossover splits the audio signal into precise frequency bands—routing deep sub-bass to high-excursion woofers and spatial high frequencies to dedicated tweeters. This discrete multi-driver time and frequency alignment eliminates inter-modulation distortion, expands the physical soundstage, and delivers the immersive room-filling audio experience that consumer brands market as "Digital Surround."
 
 ---
 
