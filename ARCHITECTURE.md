@@ -33,10 +33,11 @@ graph TD
     B -->|4-Channel Direct Feed| D1["Tweeter Left FIR (baked-tweeters-*.wav)"]
     B -->|4-Channel Direct Feed| D2["Tweeter Right FIR (baked-tweeters-*.wav)"]
     
-    C1 --> E1["Woofer Limiter / Dynamic Protection (wlim:in_1)"]
-    C2 --> E1["Woofer Limiter / Dynamic Protection (wlim:in_2)"]
-    D1 --> F1["Tweeter Limiter / Dynamic Protection (tlim:in_1)"]
-    D2 --> F1["Tweeter Limiter / Dynamic Protection (tlim:in_2)"]
+    C1 --> E1["Woofer Fast Limiter (wlim:in_1)"]
+    C2 --> E1["Woofer Fast Limiter (wlim:in_2)"]
+
+    D1 --> F1["Tweeter Fast Limiter (tlim:in_1)"]
+    D2 --> F1["Tweeter Fast Limiter (tlim:in_2)"]
 
     E1 --> G1["Woofer Drivers (Left / Right)"]
     F1 --> G2["Tweeter Drivers (Left / Right)"]
@@ -56,11 +57,11 @@ graph TD
     G --> H["baked-woofers-*.wav / baked-tweeters-*.wav<br/>(Single-Pass Baked Driver FIRs)"]
 ```
 
-### 2.3 Post-Convolver Quad-Driver Limiting & Protection
-To prevent speaker cone over-excursion and thermal overload without CPU convolver overhead:
+### 2.3 Post-Convolver Quad-Driver Safety Limiting
+To prevent speaker cone over-excursion and thermal overload without altering frequency response:
 
-1. **Post-Convolver Weighting:** Fast lookahead limiters (`wlim` and `tlim`) operate directly on the 4 post-convolver driver channels, accurately measuring the exact equalized waveform present at the driver terminals.
-2. **Dedicated Driver Thresholds:** Woofers (`wlim`) and Tweeters (`tlim`) have independent limit thresholds (`-2 dBFS` for woofers, `-1 dBFS` for tweeters) and release characteristics tuned specifically for their respective physical driver excursion limits.
+1. **Direct Terminal Measurement:** Fast lookahead limiters (`wlim` and `tlim`) operate directly on the 4 post-convolver driver channels, accurately measuring the exact equalized waveform present at the driver terminals.
+2. **Dedicated Driver Ceilings:** Woofers (`wlim`) and Tweeters (`tlim`) have independent brickwall peak ceilings (`-2 dBFS` for woofers, `-1 dBFS` for tweeters) that guard against hardware driver clipping without squashing tonal dynamics or frequency response balance.
 3. **Zero Added Listener Latency:**
    * Post-convolver limiters (`wlim` and `tlim`) receive peak warnings 5.0 ms before the audio reaches the speaker drivers.
    * **Added buffer latency for the listener: `0.0 ms`.**
