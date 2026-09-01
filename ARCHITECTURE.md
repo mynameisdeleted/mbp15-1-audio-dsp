@@ -18,26 +18,25 @@ This document provides a comprehensive technical blueprint of the **Next-Gen Aud
 ## 🔬 2. Compressed-Chain Single-Stage FIR Engine
 
 ### 2.1 LTI Stage Collapsing
-Traditional laptop DSP pipelines cascade 10 to 20 separate IIR biquads and convolver stages, consuming heavy CPU cycles and adding phase distortion. The Next-Gen Engine uses standard-library Python ([`bake-graph.py`](file:///home/steve/w11/mbp15-1-audio-dsp/bake-graph.py)) to perform single-pass LTI convolution:
+Traditional laptop DSP pipelines cascade 10 to 20 separate IIR biquads and convolver stages, consuming heavy CPU cycles and adding phase distortion. The Next-Gen Engine uses standard-library Python ([`bake-graph.py`](file:///home/steve/w11/mbp15-1-audio-dsp/bake-graph.py)) to perform single-pass LTI convolution that bakes User EQ, Voicing EQ, and Crossover filters directly into the 4-channel driver convolvers:
 
-$$\text{FIR}_{\text{baked}}(t) = \text{EQ}_{\text{voicing}}(t) * \text{EQ}_{\text{crossover}}(t) * \text{IR}_{\text{driver}}(t)$$
+$$\text{FIR}_{\text{baked}}(t) = \text{EQ}_{\text{user}}(t) * \text{EQ}_{\text{voicing}}(t) * \text{EQ}_{\text{crossover}}(t) * \text{IR}_{\text{driver}}(t)$$
 
 ```mermaid
 graph TD
     A["Raw Audio Input (FL / FR)"] --> B["Bankstown VirtualBass (2nd/3rd Order Harmonics)"]
-    B --> C["User Equalizer (user_eq)"]
-    C --> D1["Woofer Main FIR (baked-woofers-*.wav)<br/>5.0ms Lead Trimming"]
-    C --> D2["Woofer Lookahead FIR (baked-lookahead-woofers-*.wav)<br/>0.0ms Lead (5.0ms Advance)"]
-    C --> E1["Tweeter Main FIR (baked-tweeters-*.wav)<br/>5.0ms Lead Trimming"]
-    C --> E2["Tweeter Lookahead FIR (baked-lookahead-tweeters-*.wav)<br/>0.0ms Lead (5.0ms Advance)"]
+    B -->|4-Channel Direct Feed| C1["Woofer Main FIR (baked-woofers-*.wav)<br/>Bakes User EQ + Crossover (5.0ms Lead)"]
+    B -->|4-Channel Direct Feed| C2["Woofer Lookahead FIR (baked-lookahead-woofers-*.wav)<br/>Bakes User EQ + Crossover (0.0ms Lead)"]
+    B -->|4-Channel Direct Feed| D1["Tweeter Main FIR (baked-tweeters-*.wav)<br/>Bakes User EQ + Crossover (5.0ms Lead)"]
+    B -->|4-Channel Direct Feed| D2["Tweeter Lookahead FIR (baked-lookahead-tweeters-*.wav)<br/>Bakes User EQ + Crossover (0.0ms Lead)"]
     
-    D1 --> F["Woofer Limiter (wlim:in)"]
+    C1 --> E["Woofer Limiter (wlim:in)"]
+    C2 -->|Sidechain Advance| E
+    D1 --> F["Tweeter Limiter (tlim:in)"]
     D2 -->|Sidechain Advance| F
-    E1 --> G["Tweeter Limiter (tlim:in)"]
-    E2 -->|Sidechain Advance| G
 
-    F --> H1["Woofer Drivers (Left / Right)"]
-    G --> H2["Tweeter Drivers (Left / Right)"]
+    E --> G1["Woofer Drivers (Left / Right)"]
+    F --> G2["Tweeter Drivers (Left / Right)"]
 ```
 
 ### 2.2 Parallel Lookahead Sidechain Limiting
