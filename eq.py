@@ -86,9 +86,39 @@ def load_user_eq():
             pass
     return dict(PRESETS["flat"])
 
+def format_user_eq_json(eq_data):
+    enabled = eq_data.get("enabled", 1)
+    mode = eq_data.get("mode", 0)
+    g_in = eq_data.get("g_in", 1.0)
+    g_out = eq_data.get("g_out", 1.0)
+
+    lines = [
+        "{",
+        f'    "enabled": {enabled}, "mode": {mode}, "g_in": {g_in:.1f}, "g_out": {g_out:.2f},'
+    ]
+
+    for i in range(8):
+        ft = eq_data.get(f"ft_{i}", 1)
+        freq = eq_data.get(f"f_{i}", 1000.0)
+        gain = eq_data.get(f"g_{i}", 1.0)
+        q = eq_data.get(f"q_{i}", 1.0)
+        
+        freq_str = f"{freq:.1f}"
+        band_line = f'    "ft_{i}": {ft}, "f_{i}": {freq_str:<7}, "g_{i}": {gain:<4.2f}, "q_{i}": {q:.1f}'
+        if i == 0 or i == 7:
+            s_val = eq_data.get(f"s_{i}", 0)
+            band_line += f', "s_{i}": {s_val}'
+        if i < 7:
+            band_line += ","
+        lines.append(band_line)
+
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
 def save_and_apply(eq_data):
+    formatted = format_user_eq_json(eq_data)
     with open(USER_EQ_PATH, 'w') as f:
-        json.dump(eq_data, f, indent=4)
+        f.write(formatted)
     print(f"Saved {USER_EQ_PATH}")
     print("Baking FIR filters & applying to PipeWire...")
     subprocess.run([os.path.join(SCRIPT_DIR, "apply.sh"), "--bake"])
