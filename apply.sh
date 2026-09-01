@@ -51,7 +51,10 @@ json_ok "$GRAPH_SRC"; rc=$?
 [ "$rc" -eq 0 ] && echo "ok: graph.json is valid JSON"
 
 # --- build the effective graph -> ~/.audiograph.json --------------------
-if [ -f "$OVERRIDE" ]; then
+if [ "$SIMPLE" -eq 1 ]; then
+    cp "$GRAPH_SRC" "$MERGED"
+    echo "ok: baked single-stage graph_simple.json -> $MERGED"
+elif [ -f "$OVERRIDE" ]; then
     have jq || die "$OVERRIDE exists but jq is not installed"
     jq -e . "$OVERRIDE" >/dev/null 2>&1 || die "$OVERRIDE is not valid JSON"
     jq -e 'any(.["filter.graph"].nodes[]; .name == "user_eq")' "$GRAPH_SRC" >/dev/null \
