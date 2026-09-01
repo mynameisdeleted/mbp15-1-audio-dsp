@@ -32,12 +32,21 @@ done
 have() { command -v "$1" >/dev/null 2>&1; }
 die()  { echo "Error: $*" >&2; exit 1; }
 
+PROFILE_DIR="$(python3 "$SCRIPT_DIR/detect_hardware.py" 2>/dev/null || echo "$SCRIPT_DIR/laptop-configs/apple/mbp15_1")"
+if [ ! -d "$PROFILE_DIR" ]; then
+    PROFILE_DIR="$SCRIPT_DIR/15_1"
+fi
+
 if [ "$SIMPLE" -eq 1 ]; then
     echo "==> Baking static DSP stages into single-stage FIR files..."
     python3 "$SCRIPT_DIR/bake-graph.py" || die "bake-graph.py failed"
     GRAPH_SRC="$SCRIPT_DIR/graph_simple.json"
     echo "==> Installing baked FIR files -> /usr/share/t2-linux-audio/15_1/"
-    sudo cp "$SCRIPT_DIR/15_1/baked-"*.wav "/usr/share/t2-linux-audio/15_1/" || die "Failed to copy baked FIR files"
+    if [ -d "$PROFILE_DIR" ] && compgen -G "$PROFILE_DIR/baked-*.wav" >/dev/null; then
+        sudo cp "$PROFILE_DIR/baked-"*.wav "/usr/share/t2-linux-audio/15_1/" || die "Failed to copy baked FIR files"
+    else
+        sudo cp "$SCRIPT_DIR/15_1/baked-"*.wav "/usr/share/t2-linux-audio/15_1/" || die "Failed to copy baked FIR files"
+    fi
 fi
 
 # --- json validation helper -------------------------------------------

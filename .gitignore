@@ -6,6 +6,7 @@
 
 # Generated baked single-stage FIR files & simple graph
 /15_1/baked-*.wav
+laptop-configs/**/baked-*.wav
 /baked-*.wav
 /graph_simple.json
 

@@ -243,8 +243,21 @@ def bake_driver_ir(src_wav, dst_wav, is_woofer=False, driver_gain=1.0):
     print(f"==> Baked {os.path.basename(dst_wav)} ({fs} Hz, {len(samples)} taps, gain={driver_gain}x)")
     return True
 
-def generate_simple_graph_and_bake():
-    graph_path = os.path.join(SCRIPT_DIR, "graph.json")
+def generate_simple_graph_and_bake(profile_dir=None):
+    if not profile_dir:
+        try:
+            import detect_hardware
+            profile_dir, prof = detect_hardware.detect_profile()
+        except Exception:
+            profile_dir = os.path.join(SCRIPT_DIR, "laptop-configs", "apple", "mbp15_1")
+
+    if not profile_dir or not os.path.exists(profile_dir):
+        profile_dir = os.path.join(SCRIPT_DIR, "15_1")
+
+    graph_path = os.path.join(profile_dir, "graph.json")
+    if not os.path.exists(graph_path):
+        graph_path = os.path.join(SCRIPT_DIR, "graph.json")
+        
     simple_graph_path = os.path.join(SCRIPT_DIR, "graph_simple.json")
     
     if not os.path.exists(graph_path):
@@ -254,7 +267,7 @@ def generate_simple_graph_and_bake():
     with open(graph_path, 'r') as f:
         graph = json.load(f)
 
-    repo_151 = os.path.join(SCRIPT_DIR, "15_1")
+    repo_151 = profile_dir
     sys_dir = "/usr/share/t2-linux-audio/15_1"
     os.makedirs(repo_151, exist_ok=True)
 

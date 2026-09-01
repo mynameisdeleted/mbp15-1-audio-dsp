@@ -1,0 +1,15 @@
+{
+    "id": "apple_mbp15_1",
+    "name": "MacBook Pro 15,1 (2018/2019)",
+    "vendor": "Apple Inc.",
+    "dmi_matches": [
+        "MacBookPro15,1",
+        "MacBookPro15,3"
+    ],
+    "sys_dir": "/usr/share/t2-linux-audio/15_1",
+    "channels": 4,
+    "crossover_freq_hz": 180.0,
+    "woofer_tail_taps": 16384,
+    "tweeter_tail_taps": 8192,
+    "lead_trim_ms": 5.0
+}
