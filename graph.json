@@ -206,12 +206,12 @@
             }
         ],
         "links": [
-            {"output": "user_eq:out_l", "input": "equalizer:in_l"},
-            {"output": "user_eq:out_r", "input": "equalizer:in_r"},
-            {"output": "equalizer:out_l", "input": "virtualbass:in_l"},
-            {"output": "equalizer:out_r", "input": "virtualbass:in_r"},
-            {"output": "virtualbass:out_l", "input": "multiband_compressor:in_l"},
-            {"output": "virtualbass:out_r", "input": "multiband_compressor:in_r"},
+            {"output": "user_eq:out_l", "input": "virtualbass:in_l"},
+            {"output": "user_eq:out_r", "input": "virtualbass:in_r"},
+            {"output": "virtualbass:out_l", "input": "equalizer:in_l"},
+            {"output": "virtualbass:out_r", "input": "equalizer:in_r"},
+            {"output": "equalizer:out_l", "input": "multiband_compressor:in_l"},
+            {"output": "equalizer:out_r", "input": "multiband_compressor:in_r"},
             {"output": "multiband_compressor:out_l", "input": "limiter:in_1"},
             {"output": "multiband_compressor:out_r", "input": "limiter:in_2"},
             {"output": "limiter:out_1", "input": "ell:in"},

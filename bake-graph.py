@@ -209,13 +209,6 @@ def optimize_fir_latency_and_tail(samples, fs=48000, is_woofer=False):
         fade = 0.5 * (1.0 - math.cos(math.pi * i / max(fade_in_len, 1)))
         cropped[i] *= fade
 
-    # Energy compensation: Scale post-lead tail energy to preserve 100% total acoustic energy
-    cropped_energy = sum(s*s for s in samples[start_idx:])
-    if cropped_energy > 0 and total_energy > 0:
-        boost_factor = math.sqrt(total_energy / cropped_energy)
-        for i in range(lead_len, len(cropped)):
-            cropped[i] *= boost_factor
-
     # 2. Lopsided Tail Extension: 16,384 taps for woofers, 8,192 taps for tweeters
     target_len = 16384 if is_woofer else 8192
     if len(cropped) < target_len:
@@ -233,117 +226,17 @@ def optimize_fir_latency_and_tail(samples, fs=48000, is_woofer=False):
 
     return cropped
 
-def bake_driver_ir(src_wav, dst_wav, is_woofer=False, hp_freq=180.0, driver_gain=1.0):
+def bake_driver_ir(src_wav, dst_wav, is_woofer=False, driver_gain=1.0):
     if not os.path.exists(src_wav):
         print(f"Warning: {src_wav} not found, skipping.")
         return False
     
     samples, fs = read_wav_floats(src_wav)
 
-    # 1. Apply Driver Gain Multiplier (e.g., 1.1 for tweeters, 1.2 for woofers)
-    if driver_gain != 1.0:
-        samples = [s * driver_gain for s in samples]
-    
-    # 2. Apply Crossover Filter if Woofer
-    if is_woofer:
-        b0, b1, b2, a0, a1, a2 = biquad_highpass(fs, hp_freq)
-        samples = process_biquad(samples, b0, b1, b2, a0, a1, a2)
-        samples = process_biquad(samples, b0, b1, b2, a0, a1, a2) # LR4 (2-stage)
-
-    # 2.5 Apply Static System Voicing EQ ("equalizer" node from graph.json: +8dB @ 31.5Hz, +7dB @ 50Hz, +6dB @ 80Hz)
-    graph_path = os.path.join(SCRIPT_DIR, "graph.json")
-    if os.path.exists(graph_path):
-        try:
-            with open(graph_path, 'r') as f:
-                graph = json.load(f)
-            nodes = graph.get("filter.graph", {}).get("nodes", [])
-            for node in nodes:
-                if node.get("name") == "equalizer":
-                    ctrl = node.get("control", {})
-                    if ctrl.get("enabled", 1) == 1:
-                        for i in range(16):
-                            f_key = f"f_{i}"
-                            g_key = f"g_{i}"
-                            q_key = f"q_{i}"
-                            ft_key = f"ft_{i}"
-                            if f_key in ctrl and g_key in ctrl:
-                                f0 = ctrl[f_key]
-                                gain = ctrl[g_key]
-                                q = ctrl.get(q_key, 1.41)
-                                ft = ctrl.get(ft_key, 1)
-                                gain_db = 20.0 * math.log10(max(gain, 0.001))
-                                if ft == 5:
-                                    b0, b1, b2, a0, a1, a2 = biquad_lowshelf(fs, f0, gain_db, q)
-                                elif ft == 3:
-                                    b0, b1, b2, a0, a1, a2 = biquad_highshelf(fs, f0, gain_db, q)
-                                elif ft == 2: # High-Pass Filter (Low-Cut)
-                                    b0, b1, b2, a0, a1, a2 = biquad_highpass(fs, f0, q)
-                                elif ft == 4: # Low-Pass Filter (High-Cut)
-                                    b0, b1, b2, a0, a1, a2 = biquad_lowpass(fs, f0, q)
-                                else:
-                                    b0, b1, b2, a0, a1, a2 = biquad_peaking(fs, f0, gain_db, q)
-                                samples = process_biquad(samples, b0, b1, b2, a0, a1, a2)
-        except Exception as e:
-            print(f"System Voicing Equalizer note: {e}")
-
-    # 2.7 Apply Effective User EQ (user_eq.json override if present, else default user_eq from graph.json)
-    ueq = None
-    user_eq_path = os.path.join(SCRIPT_DIR, "user_eq.json")
-    if os.path.exists(user_eq_path):
-        try:
-            with open(user_eq_path, 'r') as f:
-                ueq = json.load(f)
-        except Exception as e:
-            print(f"Error reading user_eq.json: {e}")
-
-    if ueq is None and os.path.exists(graph_path):
-        try:
-            with open(graph_path, 'r') as f:
-                g = json.load(f)
-            for n in g.get("filter.graph", {}).get("nodes", []):
-                if n.get("name") == "user_eq":
-                    ueq = n.get("control", {})
-                    break
-        except Exception as e:
-            print(f"Error reading default user_eq from graph.json: {e}")
-
-    if ueq and ueq.get("enabled", 1) == 1:
-        try:
-            g_out = ueq.get("g_out", 1.0)
-            if g_out != 1.0:
-                samples = [s * g_out for s in samples]
-
-            for i in range(8):
-                f_key = f"f_{i}"
-                g_key = f"g_{i}"
-                q_key = f"q_{i}"
-                ft_key = f"ft_{i}"
-                if f_key in ueq and g_key in ueq:
-                    f0 = ueq[f_key]
-                    gain = ueq[g_key]
-                    q = ueq.get(q_key, 1.0)
-                    ft = ueq.get(ft_key, 1)
-                    gain_db = 20.0 * math.log10(max(gain, 0.001))
-                    
-                    if ft == 5: # Low Shelf
-                        b0, b1, b2, a0, a1, a2 = biquad_lowshelf(fs, f0, gain_db, q)
-                    elif ft == 3: # High Shelf
-                        b0, b1, b2, a0, a1, a2 = biquad_highshelf(fs, f0, gain_db, q)
-                    elif ft == 2: # High-Pass
-                        b0, b1, b2, a0, a1, a2 = biquad_highpass(fs, f0, q)
-                    elif ft == 4: # Low-Pass
-                        b0, b1, b2, a0, a1, a2 = biquad_lowpass(fs, f0, q)
-                    else: # Peaking EQ
-                        b0, b1, b2, a0, a1, a2 = biquad_peaking(fs, f0, gain_db, q)
-
-                    samples = process_biquad(samples, b0, b1, b2, a0, a1, a2)
-        except Exception as e:
-            print(f"User EQ processing note: {e}")
-
-    # 3. Optimize Latency (5ms Lead) + Extend Woofer/Tweeter Lopsided Tail Resolution
+    # 1. Optimize Latency (5ms Lead) + Extend Woofer/Tweeter Lopsided Tail Resolution
     samples = optimize_fir_latency_and_tail(samples, fs=fs, is_woofer=is_woofer)
 
-    # 4. True-Peak Inter-Sample Peak (ISP) Guarding (-0.5 dBFS ceiling)
+    # 3. True-Peak Inter-Sample Peak (ISP) Guarding (-0.5 dBFS ceiling)
     samples = apply_true_peak_guard(samples, max_allowed_dbfs=-0.5)
 
     write_wav_floats(dst_wav, samples, fs)
@@ -407,18 +300,18 @@ def generate_simple_graph_and_bake():
             src_wav=src_path,
             dst_wav=task["repo_dst"],
             is_woofer=task["is_woofer"],
-            hp_freq=180.0,
             driver_gain=task["gain"]
         )
 
-    # 3. Build graph_simple.json dynamically from graph.json (omitting user_eq, equalizer, limiter, ell, elr)
-    graph["node.description"] = "MacBook Pro 15,1 DSP Speakers (Single-Stage Baked FIR)"
+    # 3. Build graph_simple.json dynamically from graph.json (omitting limiter, ell, elr, whp*)
+    # Keeping user_eq, equalizer, virtualbass, multiband_compressor in exact order for 100% bit-exact bass response!
+    graph["node.description"] = "MacBook Pro 15,1 DSP Speakers (Baked FIR Crossovers & Latency Trimming)"
     new_nodes = []
 
     for node in nodes:
         name = node.get("name", "")
-        # Omit user_eq, static system voicing equalizer, redundant master limiter, ell/elr mono nodes, & crossover biquad nodes
-        if name in ["user_eq", "equalizer", "limiter", "ell", "elr", "whpL1", "whpL2", "whpR1", "whpR2"]:
+        # Omit redundant master limiter, ell/elr mono nodes, & crossover biquad nodes
+        if name in ["limiter", "ell", "elr", "whpL1", "whpL2", "whpR1", "whpR2"]:
             continue
 
         if node.get("label") == "convolver" or "conv" in name:
@@ -442,15 +335,13 @@ def generate_simple_graph_and_bake():
         }
     })
 
-    # Re-wire links: filter out user_eq, equalizer, limiter, ell, elr & whp*
+    # Re-wire links: filter out limiter, ell, elr & whp*
     links = graph.get("filter.graph", {}).get("links", [])
     new_links = []
     for link in links:
         out_node = link.get("output", "")
         in_node = link.get("input", "")
         if ("whp" in out_node or "whp" in in_node or 
-            "equalizer" in out_node or "equalizer" in in_node or 
-            "user_eq" in out_node or "user_eq" in in_node or
             "limiter:" in out_node or "limiter:" in in_node or
             "ell:" in out_node or "ell:" in in_node or
             "elr:" in out_node or "elr:" in in_node):
@@ -463,10 +354,10 @@ def generate_simple_graph_and_bake():
     new_links.append({"output": "loudness:out_l", "input": "copyL:In"})
     new_links.append({"output": "loudness:out_r", "input": "copyR:In"})
 
-    # Set graph inputs directly to virtualbass (first active DSP processing node)
+    # Set graph inputs directly to user_eq (first node in processing chain)
     graph["filter.graph"]["inputs"] = [
-        "virtualbass:in_l",
-        "virtualbass:in_r"
+        "user_eq:in_l",
+        "user_eq:in_r"
     ]
 
     # Consolidated volume tracking for stereo loudness node

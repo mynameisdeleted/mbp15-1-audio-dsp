@@ -90,8 +90,8 @@ def save_and_apply(eq_data):
     with open(USER_EQ_PATH, 'w') as f:
         json.dump(eq_data, f, indent=4)
     print(f"Saved {USER_EQ_PATH}")
-    print("Baking FIR filters and applying to PipeWire...")
-    subprocess.run([os.path.join(SCRIPT_DIR, "apply.sh"), "--bake"])
+    print("Baking FIR filters & hot-reloading into PipeWire (zero audio drop)...")
+    subprocess.run([os.path.join(SCRIPT_DIR, "apply.sh"), "--bake", "--hot"])
 
 def show_status(eq_data):
     print("=================================================================")
@@ -185,11 +185,26 @@ def main():
         print(f"ok: Set Treble gain to {val_db:+.1f} dB ({gain_mult:.3f}x)")
     elif cmd == "gain":
         if len(args) < 2:
-            print("Usage: ./eq.py gain <multiplier>  (e.g., ./eq.py gain 2.0)")
+            print("Usage: ./eq.py gain <+dB / -dB or multiplier>  (e.g., ./eq.py gain -20 or ./eq.py gain 1.5)")
             sys.exit(1)
-        eq["g_out"] = float(args[1])
-        save_and_apply(eq)
-        print(f"ok: Set Master Output Gain to {eq['g_out']:.2f}x")
+        raw_val = args[1].lower().replace("x", "").replace("db", "")
+        val = float(raw_val)
+        if val <= 0 and not raw_val.startswith("+"):
+            # Negative number passed (e.g. -20 or -100) -> Treat as dB attenuation
+            gain_mult = 10.0 ** (val / 20.0)
+            eq["g_out"] = round(gain_mult, 5)
+            save_and_apply(eq)
+            print(f"ok: Set Master Output Gain to {val:+.1f} dB ({gain_mult:.5f}x multiplier)")
+        else:
+            # Positive linear multiplier or positive dB
+            if "+" in raw_val:
+                gain_mult = 10.0 ** (val / 20.0)
+                eq["g_out"] = round(gain_mult, 3)
+                print(f"ok: Set Master Output Gain to {val:+.1f} dB ({gain_mult:.3f}x multiplier)")
+            else:
+                eq["g_out"] = round(val, 3)
+                print(f"ok: Set Master Output Gain to {eq['g_out']:.2f}x multiplier")
+            save_and_apply(eq)
     elif cmd in ["enable", "disable"]:
         eq["enabled"] = 1 if cmd == "enable" else 0
         save_and_apply(eq)
