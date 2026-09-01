@@ -9,3 +9,6 @@
 /baked-*.wav
 /graph_simple.json
 
+# Python bytecode cache
+*.pyc
+__pycache__/
