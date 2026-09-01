@@ -269,9 +269,7 @@
         "node.name": "effect_output.t2-151-speakers",
         "node.description": "MacBook Pro 15,1 DSP Speakers Out",
         "media.name": "MacBook Pro 15,1 DSP Speakers Out",
-        "target.object": "alsa_output.platform-sound.RawSpeakers",
-        "node.dont-fallback": "true",
-        "node.passive": "true",
+        "node.passive": "false",
         "audio.channels": "4",
         "audio.allowed-rates": [48000, 44100],
         "audio.position": ["FL", "FR", "RL", "RR"]
