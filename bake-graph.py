@@ -226,21 +226,54 @@ def optimize_fir_latency_and_tail(samples, fs=48000, is_woofer=False):
 
     return cropped
 
-def bake_driver_ir(src_wav, dst_wav, is_woofer=False, driver_gain=1.0):
+def optimize_fir_lookahead_sidechain(samples, fs=48000, is_woofer=False):
+    # 1. Find absolute peak index
+    peak_idx = 0
+    max_val = 0.0
+    for i, s in enumerate(samples):
+        if abs(s) > max_val:
+            max_val = abs(s)
+            peak_idx = i
+
+    # Lookahead control path starts directly at peak_idx (advanced by 5.0ms relative to 5.0ms lead main path)
+    cropped = samples[peak_idx:]
+    
+    target_len = 16384 if is_woofer else 8192
+    if len(cropped) < target_len:
+        tail_pad = target_len - len(cropped)
+        cropped.extend([0.0] * tail_pad)
+    elif len(cropped) > target_len:
+        cropped = cropped[:target_len]
+
+    # Smooth exponential tail fadeout over last 2048 samples
+    fade_len = 2048
+    for i in range(fade_len):
+        idx = len(cropped) - fade_len + i
+        fade = 0.5 * (1.0 + math.cos(math.pi * i / fade_len))
+        cropped[idx] *= fade
+
+    return cropped
+
+def bake_driver_ir(src_wav, dst_wav, dst_lk_wav=None, is_woofer=False, driver_gain=1.0):
     if not os.path.exists(src_wav):
         print(f"Warning: {src_wav} not found, skipping.")
         return False
     
-    samples, fs = read_wav_floats(src_wav)
+    orig_samples, fs = read_wav_floats(src_wav)
 
-    # 1. Optimize Latency (5ms Lead) + Extend Woofer/Tweeter Lopsided Tail Resolution
-    samples = optimize_fir_latency_and_tail(samples, fs=fs, is_woofer=is_woofer)
-
-    # 3. True-Peak Inter-Sample Peak (ISP) Guarding (-0.5 dBFS ceiling)
+    # 1. Optimize Latency (5ms Lead) + Extend Woofer/Tweeter Lopsided Tail Resolution (Main Path)
+    samples = optimize_fir_latency_and_tail(list(orig_samples), fs=fs, is_woofer=is_woofer)
     samples = apply_true_peak_guard(samples, max_allowed_dbfs=-0.5)
-
     write_wav_floats(dst_wav, samples, fs)
-    print(f"==> Baked {os.path.basename(dst_wav)} ({fs} Hz, {len(samples)} taps, gain={driver_gain}x)")
+    print(f"==> Baked Main FIR {os.path.basename(dst_wav)} ({fs} Hz, {len(samples)} taps, gain={driver_gain}x)")
+
+    # 2. Parallel Lookahead Sidechain FIR (Advanced by 5.0ms)
+    if dst_lk_wav:
+        samples_lk = optimize_fir_lookahead_sidechain(list(orig_samples), fs=fs, is_woofer=is_woofer)
+        samples_lk = apply_true_peak_guard(samples_lk, max_allowed_dbfs=-0.5)
+        write_wav_floats(dst_lk_wav, samples_lk, fs)
+        print(f"==> Baked Lookahead Sidechain FIR {os.path.basename(dst_lk_wav)} ({fs} Hz, {len(samples_lk)} taps)")
+
     return True
 
 def generate_simple_graph_and_bake(profile_dir=None):
@@ -290,14 +323,19 @@ def generate_simple_graph_and_bake(profile_dir=None):
                     if "woofer" in basename.lower():
                         is_woofer = True
                     baked_basename = "baked-" + basename
+                    baked_lk_basename = "baked-lookahead-" + basename
                     repo_dst_path = os.path.join(repo_151, baked_basename)
                     sys_dst_path = os.path.join(sys_dir, baked_basename)
+                    repo_dst_lk_path = os.path.join(repo_151, baked_lk_basename)
+                    sys_dst_lk_path = os.path.join(sys_dir, baked_lk_basename)
                     convolver_tasks[sys_path] = {
                         "basename": basename,
                         "is_woofer": is_woofer,
                         "gain": gain,
                         "repo_dst": repo_dst_path,
-                        "sys_dst": sys_dst_path
+                        "sys_dst": sys_dst_path,
+                        "repo_dst_lk": repo_dst_lk_path,
+                        "sys_dst_lk": sys_dst_lk_path
                     }
 
     # 2. Bake FIR files dynamically for all discovered WAV targets
@@ -312,6 +350,7 @@ def generate_simple_graph_and_bake(profile_dir=None):
         bake_driver_ir(
             src_wav=src_path,
             dst_wav=task["repo_dst"],
+            dst_lk_wav=task["repo_dst_lk"],
             is_woofer=task["is_woofer"],
             driver_gain=task["gain"]
         )
