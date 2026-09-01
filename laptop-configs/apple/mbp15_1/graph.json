@@ -56,7 +56,7 @@
                 "control": {
                     "enabled": 1,
                     "input": 1.0,
-                    "fft": 4
+                    "fft": 1
                 }
             },
             {

@@ -424,14 +424,19 @@ def generate_simple_graph_and_bake(profile_dir=None, input_graph_path=None):
             biquads=biquads
         )
 
-    # 3. Build graph_simple.json dynamically from graph.json (omitting user_eq, equalizer, and whp* nodes)
+    # 3. Build graph_simple.json dynamically from graph.json (omitting user_eq, equalizer, whp* nodes, and disabled loudness)
     graph["node.description"] = "MacBook Pro 15,1 DSP Speakers (Baked FIR Crossovers & Latency Trimming)"
     new_nodes = []
 
+    loudness_node = next((n for n in nodes if n.get("name") == "loudness"), None)
+    loudness_enabled = loudness_node and loudness_node.get("control", {}).get("enabled", 1) == 1
+
     for node in nodes:
         name = node.get("name", "")
-        # Omit user_eq, equalizer (baked into FIRs), and whp* crossover nodes
+        # Omit user_eq, equalizer (baked into FIRs), whp* crossover nodes, and disabled loudness
         if name in ["user_eq", "equalizer", "whpL1", "whpL2", "whpR1", "whpR2"]:
+            continue
+        if name == "loudness" and not loudness_enabled:
             continue
 
         if node.get("label") == "convolver" or "conv" in name:
@@ -455,13 +460,18 @@ def generate_simple_graph_and_bake(profile_dir=None, input_graph_path=None):
         in_node = link.get("input", "")
         if ("user_eq" in out_node or "user_eq" in in_node or
             "equalizer" in out_node or "equalizer" in in_node or
-            "whp" in out_node or "whp" in in_node):
+            "whp" in out_node or "whp" in in_node or
+            (not loudness_enabled and ("loudness" in out_node or "loudness" in in_node))):
             continue
         new_links.append(link)
 
-    # Wire virtualbass -> loudness (stereo)
-    new_links.append({"output": "virtualbass:out_l", "input": "loudness:in_l"})
-    new_links.append({"output": "virtualbass:out_r", "input": "loudness:in_r"})
+    # Wire virtualbass output
+    if loudness_enabled:
+        new_links.append({"output": "virtualbass:out_l", "input": "loudness:in_l"})
+        new_links.append({"output": "virtualbass:out_r", "input": "loudness:in_r"})
+    else:
+        new_links.append({"output": "virtualbass:out_l", "input": "copyL:In"})
+        new_links.append({"output": "virtualbass:out_r", "input": "copyR:In"})
 
     # Set graph inputs directly to virtualbass (first active node in simplified processing chain)
     graph["filter.graph"]["inputs"] = [
@@ -472,18 +482,21 @@ def generate_simple_graph_and_bake(profile_dir=None, input_graph_path=None):
     # Remove capture.volumes from filter.graph if present
     graph["filter.graph"].pop("capture.volumes", None)
 
-    # Consolidated volume tracking for stereo loudness node inside capture.props
+    # Consolidated volume tracking inside capture.props if loudness enabled
     if "capture.props" not in graph:
         graph["capture.props"] = {}
 
-    graph["capture.props"]["capture.volumes"] = [
-        {
-            "control": "loudness:volume",
-            "min": -65.0,
-            "max": 0.0,
-            "scale": "cubic"
-        }
-    ]
+    if loudness_enabled:
+        graph["capture.props"]["capture.volumes"] = [
+            {
+                "control": "loudness:volume",
+                "min": -65.0,
+                "max": 0.0,
+                "scale": "cubic"
+            }
+        ]
+    else:
+        graph["capture.props"].pop("capture.volumes", None)
 
     graph["filter.graph"]["nodes"] = new_nodes
     graph["filter.graph"]["links"] = new_links
