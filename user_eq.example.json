@@ -4,6 +4,7 @@
     "__comment3__": "laptop speakers benefit from not pushing their bass that hard.",
     "__comment4__": "this eq curve is a compromise between the two.",
     "__comment5__": "if you want to tweak it, please do so in small increments, and test with your own ears.",
+    "__comment6__": "g_out = 2.4 will overdrive bass hard for lower frequencies where our multiband compressor becomes essential.",
     "enabled": 1, "mode": 0, "g_in": 1.0, "g_out": 2.40,
     "ft_0": 5, "f_0": 70.0   , "g_0": 0.8, "q_0": 0.7, "s_0": 0,
     "ft_1": 1, "f_1": 110.0  , "g_1": 1.0, "q_1": 1.0,
