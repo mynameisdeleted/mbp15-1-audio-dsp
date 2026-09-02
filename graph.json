@@ -26,7 +26,7 @@
                 "control": {
                     "enabled": 1,
                     "mode": 0,
-                    "g_in": 0.5,
+                    "g_in": 1.0,
                     "g_out": 1.5,
                     "__comment__":"(for f>100) g_N = g_ref * (f_ref / f_N) ^ log2(sqrt(1.5))",
                     "__comment3__":"note the excessive bass gains require a solid multiband compressor",
