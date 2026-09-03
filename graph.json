@@ -97,16 +97,6 @@
             },
             {
                 "type": "lv2",
-                "name": "limiter",
-                "plugin": "http://plugin.org.uk/swh-plugins/fastLookaheadLimiter",
-                "control": {
-                    "ingain": 0,
-                    "limit": -1,
-                    "release": 0.15
-                }
-            },
-            {
-                "type": "lv2",
                 "plugin": "http://lsp-plug.in/plugins/lv2/loud_comp_mono",
                 "name": "ell",
                 "control": {
@@ -219,10 +209,8 @@
             {"output": "virtualbass:out_r", "input": "equalizer:in_r"},
             {"output": "equalizer:out_l", "input": "multiband_compressor:in_l"},
             {"output": "equalizer:out_r", "input": "multiband_compressor:in_r"},
-            {"output": "multiband_compressor:out_l", "input": "limiter:in_1"},
-            {"output": "multiband_compressor:out_r", "input": "limiter:in_2"},
-            {"output": "limiter:out_1", "input": "ell:in"},
-            {"output": "limiter:out_2", "input": "elr:in"},
+            {"output": "multiband_compressor:out_l", "input": "ell:in"},
+            {"output": "multiband_compressor:out_r", "input": "elr:in"},
             {"output": "ell:out", "input": "copyL:In"},
             {"output": "elr:out", "input": "copyR:In"},
             {"output": "copyL:Out", "input": "convLT:In"},
