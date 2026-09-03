@@ -1,5 +1,8 @@
 # MacBook Pro 15,1 — Warm, Natural Audio DSP for t2linux
 
+
+based on https://github.com/lemmyg/t2-apple-audio-dsp/tree/master
+
 [![GitHub Repository](https://img.shields.io/badge/Repository-GitHub-181717.svg?logo=github)](https://github.com/mynameisdeleted/mbp15-1-audio-dsp) [![Fairfax Media Git](https://img.shields.io/badge/Repository-Fairfax%20Media-003366.svg)](https://git.fairfaxmedia.net/t2linux/mbp15-1-audio-dsp.git) [![t2linux](https://img.shields.io/badge/Platform-t2linux-blue.svg)](https://wiki.t2linux.org/) [![Asahi Audio Ecosystem](https://img.shields.io/badge/Ecosystem-Asahi%20Audio-orange.svg)](https://github.com/AsahiLinux/asahi-audio) [![PipeWire](https://img.shields.io/badge/Audio-PipeWire%20%2F%20WirePlumber-red.svg)](https://pipewire.org/) [![Target Hardware](https://img.shields.io/badge/Hardware-MacBook%20Pro%2015%2C1-black.svg)]()
 
 A custom PipeWire `filter-chain` DSP graph engineered to deliver warm, natural audio to **t2linux** on the **MacBook Pro 15,1** (2018/2019 Intel T2)—aimed at matching or beating macOS (OS X) audio quality both subjectively and objectively.
