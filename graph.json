@@ -136,7 +136,7 @@
                         "/usr/share/t2-linux-audio/15_1/tweeters-96k.wav"
                     ],
                     "channel": 0,
-                    "gain": 1.0
+                    "gain": 1.1
                 }
             },
             {
@@ -150,7 +150,7 @@
                         "/usr/share/t2-linux-audio/15_1/tweeters-96k.wav"
                     ],
                     "channel": 0,
-                    "gain": 1.0
+                    "gain": 1.1
                 }
             },
             {
@@ -164,7 +164,7 @@
                         "/usr/share/t2-linux-audio/15_1/woofers-96k.wav"
                     ],
                     "channel": 0,
-                    "gain": 1.0
+                    "gain": 1.1
                 }
             },
             {
@@ -178,7 +178,7 @@
                         "/usr/share/t2-linux-audio/15_1/woofers-96k.wav"
                     ],
                     "channel": 0,
-                    "gain": 1.0
+                    "gain": 1.1
                 }
             },
             {
