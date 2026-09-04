@@ -22,6 +22,7 @@ Upstream graphs (`asahi-audio` / `t2-apple-audio-dsp`) target a measurement-flat
 | 💥 **Distortion at High Volume** | Post-FIR driver limiters (`wlim` @ -2dB, `tlim` @ -1dB) | Crystal clean output at 100% volume with zero amp clipping |
 | 🔊 **Woofer Over-Excursion** | 60 Hz high-pass + 8-band multiband compressor | Woofers don't bottom out or rattle on heavy bass beats |
 | 🔇 **No Deep Sub-Bass** | Psychoacoustic sub-bass (`virtualbass` via Bankstown) | Extended perceived low-end without physical cone strain |
+| 🛡️ **Voice-Coil Overheating** | Dual Woofer & Tweeter Virtual Thermal Guards | Continuous white noise automatically attenuated to 500mW / 75mW |
 | 🎚️ **Fixed / Rigid EQ** | Isolated 8-band `user_eq` preference node | Custom tone presets that survive git updates |
 
 ---
@@ -40,8 +41,7 @@ flowchart TD
     subgraph Stage2 ["2. Dynamics & Headroom Management"]
         EQ --> VB["🔊 Virtual Bass (Bankstown Sub-Harmonics)"]:::dynamics
         VB --> MBComp["📊 Multiband Compressor (8-Band LSP)"]:::dynamics
-        MBComp --> Limiter["🛡️ Main Limiter (Broadband Lookahead)"]:::limiter
-        Limiter --> LoudComp["👂 Loudness Comp (ISO-226 Equal Loudness)"]:::dynamics
+        MBComp --> LoudComp["👂 Loudness Comp (ISO-226 2k FFT)"]:::dynamics
     end
 
     subgraph Stage3 ["3. Crossover & Driver FIR Correction"]
@@ -50,22 +50,23 @@ flowchart TD
         subgraph Tweeters ["Tweeter Channels"]
             Copy --> ConvLT["🔊 Tweeter L FIR (convLT)"]:::fir
             Copy --> ConvRT["🔊 Tweeter R FIR (convRT)"]:::fir
+            ConvLT --> TGuard["🛡️ Tweeter Thermal Guard (75mW / 1.0s Tau)"]:::limiter
+            ConvRT --> TGuard
+            TGuard --> TLim["🛡️ Tweeter Limiter (-1 dB Ceiling)"]:::limiter
         end
         
         subgraph Woofers ["Woofer Channels"]
             Copy --> ConvLW["🔊 Woofer L FIR (convLW)"]:::fir
             Copy --> ConvRW["🔊 Woofer R FIR (convRW)"]:::fir
+            ConvLW --> WLim["🛡️ Woofer Limiter (-2 dB Ceiling)"]:::limiter
+            ConvRW --> WLim
+            WLim --> WGuard["🛡️ Woofer Thermal Guard (500mW / 2.5s Tau)"]:::limiter
         end
     end
 
-    subgraph Stage4 ["4. Driver Safety Backstops & Output"]
-        ConvLT --> TLim["🛡️ Tweeter Limiter (-1 dB Ceiling)"]:::limiter
-        ConvRT --> TLim
-        ConvLW --> WLim["🛡️ Woofer Limiter (-2 dB Ceiling)"]:::limiter
-        ConvRW --> WLim
-
+    subgraph Stage4 ["4. Driver Output"]
         TLim --> Out["🔈 RawSpeakers Sink"]:::input
-        WLim --> Out
+        WGuard --> Out
     end
 
     classDef input fill:#2d3748,stroke:#4a5568,color:#fff;
@@ -74,6 +75,29 @@ flowchart TD
     classDef fir fill:#805ad5,stroke:#9f7aea,color:#fff;
     classDef limiter fill:#c53030,stroke:#e53e3e,color:#fff;
 ```
+
+---
+
+## 🛡️ Dual-Driver Virtual Thermal Guards & Power Caps
+
+Because Linux cannot access the T2 hardware current-sensing ADCs, we implement a **Virtual Voice-Coil Thermal Model** that models continuous electrical power dissipation ($P = V_{\text{rms}}^2 / R_{\text{vc}}$) and exponential cooling into the air gap:
+
+$$C_{\text{th}} \frac{d\Delta T(t)}{dt} = \frac{V_{\text{rms}}^2(t)}{R_{\text{vc}}} - \frac{\Delta T(t)}{R_{\text{th}}}$$
+
+### Thermal Guard Configurations
+
+* **Woofer Thermal Guard (`thermal_guard` @ Post-`wlim`):**
+  * **Continuous Power Cap:** **$500\text{ mW}$ ($0.50\text{ W}$)** per channel ($8\%$ of max $6.25\text{ W}$ peak power).
+  * **Linear RMS Threshold (`al`):** `0.282843` ($-10.97\text{ dBFS}$ RMS).
+  * **Heating Tau ($\tau_{\text{heat}}$):** $2,500\text{ ms}$ (2.5 seconds).
+  * **Cooling Tau ($\tau_{\text{cool}}$):** $5,000\text{ ms}$ (5.0 seconds).
+* **Tweeter Thermal Guard (`tweeter_thermal_guard` @ Pre-`tlim`):**
+  * **Continuous Power Cap:** **$75\text{ mW}$ ($0.075\text{ W}$)** per channel ($1.2\%$ of max $6.25\text{ W}$ peak power).
+  * **Linear RMS Threshold (`al`):** `0.109545` ($-19.21\text{ dBFS}$ RMS).
+  * **Heating Tau ($\tau_{\text{heat}}$):** $1,000\text{ ms}$ (1.0 second, faster heating for smaller coil mass).
+  * **Cooling Tau ($\tau_{\text{cool}}$):** $2,500\text{ ms}$ (2.5 seconds).
+
+> **Acoustic Result:** Dynamic music (Blues, Classical, Rock) has high crest factor ($12\text{ dB} - 18\text{ dB}$) and operates at $0\text{ dB}$ gain reduction with full peak dynamics. Continuous high-power signals (full-volume white noise or sine sweeps) are automatically attenuated to harmless power levels after ~2 seconds.
 
 ---
 
@@ -121,7 +145,7 @@ Customize tone settings without touching calibrated internal DSP nodes. `user_eq
 | **Electronic / Hip-Hop** | `1.26` | `1.19` | `1.00` | `0.94` | `1.00` | `1.00` | `1.06` | `1.00` |
 | **Movie (Dialogue Focus)**| `0.84` | `0.94` | `1.00` | `1.06` | `1.19` | `1.19` | `1.06` | `1.00` |
 | **Movie (Action / Bass)** | `1.41` | `1.12` | `1.00` | `1.00` | `1.00` | `1.06` | `1.12` | `1.12` |
-| **Late-Night (Low Level)** | `0.63` | `0.79` | `1.00` | `1.00` | `1.06` | `1.12` | `1.00` | `0.94` |
+| **Late-Night (Low Level)** | `0.63` | `0.79` | `1.00` | `1.00` | `1.06` | `1.19` | `1.00` | `0.94` |
 
 *(Note: Gain values are linear multipliers: `1.0` = 0 dB, `1.41` ≈ +3 dB boost, `0.71` ≈ -3 dB cut)*
 
@@ -131,9 +155,21 @@ Customize tone settings without touching calibrated internal DSP nodes. `user_eq
 
 If your specific physical unit requires custom acoustic tuning:
 
-* **Woofer Ceiling:** Edit `wlim.control.limit` in `graph.json` (Default: `-2` dB. Lower to `-3` / `-4` dB for stricter mechanical protection).
-* **Bass Drive:** Adjust `equalizer.control` (`g_1` through `g_5`).
+* **Woofer Ceiling:** Edit `wlim.control.limit` in `graph.json` (Default: `0` dBFS into `thermal_guard`).
+* **Thermal Recalibration:** Edit `al` in `thermal_guard` (`al = sqrt(P_watts / 6.25W)`).
 * **Sub-Bass Synthesis:** Adjust `virtualbass.control.amt` (Default: `1.0`).
+
+---
+
+## ⚠️ AT-YOUR-OWN-RISK DISCLAIMER & Replacement Resources
+
+> [!CAUTION]
+> **USE AT YOUR OWN RISK:** This DSP engine processes micro-speakers with active equal-energy voicing curves and sub-bass synthesis. While dual virtual thermal guards ($500\text{ mW}$ woofers / $75\text{ mW}$ tweeters), excursion protection, and peak limiters are enabled by default to safeguard hardware, **modifying threshold limits, disabling protection nodes, or playing continuous full-volume synthetic square waves is done entirely at your own risk**. The authors and maintainers assume no responsibility or liability for damaged speaker cones, blown voice coils, or hardware failures.
+
+### 🔧 Speaker Replacement & Repair Resources
+If you choose to push hardware limits or need to replace aged factory speakers:
+* 🛠️ **iFixit Repair Guide:** [MacBook Pro 15" Touch Bar 2018 Speaker Replacement - iFixit](https://www.ifixit.com/Guide/MacBook+Pro+15-Inch+Touch+Bar+2018+Right+Speaker+Replacement/122784)
+* 🛒 **Replacement Speaker Modules:** Search for MacBook Pro 15,1 / 15,2 (A1990 2018/2019) Left & Right Speaker Assemblies on [iFixit Parts](https://www.ifixit.com/Parts/MacBook_Pro_15%22_Touch_Bar) or [eBay A1990 Speakers](https://www.ebay.com/sch/i.html?_nkw=macbook+pro+a1990+speakers).
 
 ---
 
