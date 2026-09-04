@@ -92,10 +92,10 @@ $$C_{\text{th}} \frac{d\Delta T(t)}{dt} = \frac{V_{\text{rms}}^2(t)}{R_{\text{vc
   * **Heating Tau ($\tau_{\text{heat}}$):** $2,500\text{ ms}$ (2.5 seconds).
   * **Cooling Tau ($\tau_{\text{cool}}$):** $5,000\text{ ms}$ (5.0 seconds).
 * **Tweeter Thermal Guard (`tweeter_thermal_guard` @ Pre-`tlim`):**
-  * **Continuous Power Cap:** **$75\text{ mW}$ ($0.075\text{ W}$)** per channel ($1.2\%$ of max $6.25\text{ W}$ peak power).
-  * **Linear RMS Threshold (`al`):** `0.109545` ($-19.21\text{ dBFS}$ RMS).
-  * **Heating Tau ($\tau_{\text{heat}}$):** $1,000\text{ ms}$ (1.0 second, faster heating for smaller coil mass).
-  * **Cooling Tau ($\tau_{\text{cool}}$):** $2,500\text{ ms}$ (2.5 seconds).
+  * **Continuous Power Cap:** **$100\text{ mW}$ ($0.100\text{ W}$)** per channel ($1.6\%$ of max $6.25\text{ W}$ peak power).
+  * **Linear RMS Threshold (`al`):** `0.126491` ($-17.96\text{ dBFS}$ RMS).
+  * **Heating Tau ($\tau_{\text{heat}}$):** $1,000\text{ ms}$ (1.0 second).
+  * **Cooling Tau ($\tau_{\text{cool}}$):** $2,000\text{ ms}$ (2.0 seconds, fast decay recovery from Zoom/WebRTC glitches).
 
 > **Acoustic Result:** Dynamic music (Blues, Classical, Rock) has high crest factor ($12\text{ dB} - 18\text{ dB}$) and operates at $0\text{ dB}$ gain reduction with full peak dynamics. Continuous high-power signals (full-volume white noise or sine sweeps) are automatically attenuated to harmless power levels after ~2 seconds.
 
