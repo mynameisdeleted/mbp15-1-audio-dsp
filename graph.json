@@ -205,7 +205,7 @@
                     "kn": 0.5,
                     "scp": 1,
                     "scm": 1,
-                    "__comment_thermal__": "VIRTUAL VOICE-COIL WOOFER THERMAL GUARD (500mW Rating)",
+                    "__comment_thermal__": "VIRTUAL VOICE-COIL WOOFER THERMAL GUARD (1.0W Rating)",
                     "__comment_power__": "P_peak = V_peak^2 / R_vc = 5.0^2 / 4.0 = 6.25W Peak per Channel",
                     "__comment_threshold__": "Linear RMS Threshold: al = sqrt(P_continuous / P_peak) = sqrt(1.0W / 6.25W) = sqrt(0.16) = 0.4 (-7.96 dBFS)",
                     "__comment_timing__": "Thermal Integration (at): 2500ms (2.5s heating tau), Thermal Cooling (rt): 5000ms (5.0s exponential decay into air gap)",

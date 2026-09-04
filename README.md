@@ -87,8 +87,8 @@ $$C_{\text{th}} \frac{d\Delta T(t)}{dt} = \frac{V_{\text{rms}}^2(t)}{R_{\text{vc
 ### Thermal Guard Configurations
 
 * **Woofer Thermal Guard (`thermal_guard` @ Post-`wlim`):**
-  * **Continuous Power Cap:** **$500\text{ mW}$ ($0.50\text{ W}$)** per channel ($8\%$ of max $6.25\text{ W}$ peak power).
-  * **Linear RMS Threshold (`al`):** `0.282843` ($-10.97\text{ dBFS}$ RMS).
+  * **Continuous Power Cap:** **$1.0\text{ W}$ ($1,000\text{ mW}$)** per channel ($16\%$ of max $6.25\text{ W}$ peak power).
+  * **Linear RMS Threshold (`al`):** `0.4000` ($-7.96\text{ dBFS}$ RMS).
   * **Heating Tau ($\tau_{\text{heat}}$):** $2,500\text{ ms}$ (2.5 seconds).
   * **Cooling Tau ($\tau_{\text{cool}}$):** $5,000\text{ ms}$ (5.0 seconds).
 * **Tweeter Thermal Guard (`tweeter_thermal_guard` @ Pre-`tlim`):**
