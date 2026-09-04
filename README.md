@@ -164,7 +164,9 @@ If your specific physical unit requires custom acoustic tuning:
 ## ⚠️ AT-YOUR-OWN-RISK DISCLAIMER & Replacement Resources
 
 > [!CAUTION]
-> **USE AT YOUR OWN RISK:** This DSP engine processes micro-speakers with active equal-energy voicing curves and sub-bass synthesis. While dual virtual thermal guards ($500\text{ mW}$ woofers / $75\text{ mW}$ tweeters), excursion protection, and peak limiters are enabled by default to safeguard hardware, **modifying threshold limits, disabling protection nodes, or playing continuous full-volume synthetic square waves is done entirely at your own risk**. The authors and maintainers assume no responsibility or liability for damaged speaker cones, blown voice coils, or hardware failures.
+> **USE AT YOUR OWN RISK:** Loud signals in general, as well as all continuous loud audio (e.g. uncompressed music, white/pink noise, full-volume sine sweeps, or software glitches), carry an inherent physical risk of voice-coil overheating, mechanical over-excursion, or permanent speaker driver damage.
+>
+> While this DSP engine includes virtual thermal-emulation limiters and dynamic excursion limiters as a **best-effort protective measure**, this software is provided **"AS IS", WITH NO IMPLIED WARRANTY OR GUARANTEE OF ANY KIND**. You are solely responsible for protecting your own hardware and managing playback volume levels. The authors and maintainers assume no responsibility or liability for damaged speaker cones, blown voice coils, or hardware failures.
 
 ### 🔧 Speaker Replacement & Repair Resources
 If you choose to push hardware limits or need to replace aged factory speakers:
