@@ -168,10 +168,10 @@ If your specific physical unit requires custom acoustic tuning:
 >
 > While this DSP engine includes virtual thermal-emulation limiters and dynamic excursion limiters as a **best-effort protective measure**, this software is provided **"AS IS", WITH NO IMPLIED WARRANTY OR GUARANTEE OF ANY KIND**. You are solely responsible for protecting your own hardware and managing playback volume levels. The authors and maintainers assume no responsibility or liability for damaged speaker cones, blown voice coils, or hardware failures.
 
-### 🔧 Speaker Replacement & Repair Resources
-If you choose to push hardware limits or need to replace aged factory speakers:
+### 🔧 Speaker Replacement & Repair Resources for Power Users
+For expert users who wish to customize thresholds, push thermal limits higher, or replace worn factory driver modules:
 * 🛠️ **iFixit Repair Guide:** [MacBook Pro 15" Touch Bar 2018 Speaker Replacement - iFixit](https://www.ifixit.com/Guide/MacBook+Pro+15-Inch+Touch+Bar+2018+Right+Speaker+Replacement/122784)
-* 🛒 **Replacement Speaker Modules:** Search for MacBook Pro 15,1 / 15,2 (A1990 2018/2019) Left & Right Speaker Assemblies on [iFixit Parts](https://www.ifixit.com/Parts/MacBook_Pro_15%22_Touch_Bar) or [eBay A1990 Speakers](https://www.ebay.com/sch/i.html?_nkw=macbook+pro+a1990+speakers).
+* 🛒 **Replacement Speaker Modules:** Cheap OEM speaker assemblies are readily available if you ever push limits and need a fresh set of drivers: search for MacBook Pro 15,1 / 15,2 (A1990 2018/2019) Left & Right Speaker Assemblies on [iFixit Parts](https://www.ifixit.com/Parts/MacBook_Pro_15%22_Touch_Bar) or [eBay A1990 Speakers](https://www.ebay.com/sch/i.html?_nkw=macbook+pro+a1990+speakers).
 
 ---
 
