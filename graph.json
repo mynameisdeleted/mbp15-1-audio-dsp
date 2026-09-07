@@ -201,23 +201,6 @@
             },
             {
                 "type": "lv2",
-                "name": "tweeter_thermal_guard",
-                "plugin": "http://lsp-plug.in/plugins/lv2/sc_compressor_stereo",
-                "control": {
-                    "enabled": 1,
-                    "g_in": 1.0,
-                    "g_out": 1.0,
-                    "at": 1000.0,
-                    "rt": 2000.0,
-                    "al": 0.18,
-                    "cr": 4.0,
-                    "kn": 0.5,
-                    "scp": 0,
-                    "scm": 1
-                }
-            },
-            {
-                "type": "lv2",
                 "name": "tlim",
                 "plugin": "http://plugin.org.uk/swh-plugins/fastLookaheadLimiter",
                 "control": {
@@ -232,24 +215,22 @@
             {"output": "user_eq:out_r", "input": "equalizer:in_r"},
             {"output": "equalizer:out_l", "input": "virtualbass:in_l"},
             {"output": "equalizer:out_r", "input": "virtualbass:in_r"},
-            {"output": "virtualbass:out_l", "input": "ell:in"},
-            {"output": "virtualbass:out_r", "input": "elr:in"},
+            {"output": "virtualbass:out_l", "input": "thermal_guard:in_l"},
+            {"output": "virtualbass:out_r", "input": "thermal_guard:in_r"},
+            {"output": "thermal_guard:out_l", "input": "ell:in"},
+            {"output": "thermal_guard:out_r", "input": "elr:in"},
             {"output": "ell:out", "input": "copyL:In"},
             {"output": "elr:out", "input": "copyR:In"},
             {"output": "copyL:Out", "input": "convLT:In"},
             {"output": "copyL:Out", "input": "convLW:In"},
             {"output": "copyR:Out", "input": "convRT:In"},
             {"output": "copyR:Out", "input": "convRW:In"},
-            {"output": "convLW:Out", "input": "thermal_guard:in_l"},
-            {"output": "convRW:Out", "input": "thermal_guard:in_r"},
-            {"output": "thermal_guard:out_l", "input": "multiband_compressor:in_l"},
-            {"output": "thermal_guard:out_r", "input": "multiband_compressor:in_r"},
+            {"output": "convLW:Out", "input": "multiband_compressor:in_l"},
+            {"output": "convRW:Out", "input": "multiband_compressor:in_r"},
             {"output": "multiband_compressor:out_l", "input": "wlim:in_1"},
             {"output": "multiband_compressor:out_r", "input": "wlim:in_2"},
-            {"output": "convLT:Out", "input": "tweeter_thermal_guard:in_l"},
-            {"output": "convRT:Out", "input": "tweeter_thermal_guard:in_r"},
-            {"output": "tweeter_thermal_guard:out_l", "input": "tlim:in_1"},
-            {"output": "tweeter_thermal_guard:out_r", "input": "tlim:in_2"}
+            {"output": "convLT:Out", "input": "tlim:in_1"},
+            {"output": "convRT:Out", "input": "tlim:in_2"}
         ],
         "inputs": [
             "user_eq:in_l",
